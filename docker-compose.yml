@@ -1,4 +1,55 @@
 services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/vendor
+    environment:
+      - APP_ENV=local
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=laravelrag
+      - DB_USERNAME=laravelrag
+      - DB_PASSWORD=secret
+      - OLLAMA_URL=http://ollama:11434
+      - QUEUE_CONNECTION=database
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "php", "-r", "echo 'ok';"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  queue:
+    build: .
+    command: php artisan queue:work --sleep=3 --tries=3
+    volumes:
+      - .:/app
+      - /app/vendor
+    environment:
+      - APP_ENV=local
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=laravelrag
+      - DB_USERNAME=laravelrag
+      - DB_PASSWORD=secret
+      - OLLAMA_URL=http://ollama:11434
+      - QUEUE_CONNECTION=database
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   postgres:
     image: pgvector/pgvector:pg17
     ports:
@@ -9,6 +60,11 @@ services:
       POSTGRES_PASSWORD: secret
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laravelrag -d laravelrag"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   ollama:
     image: ollama/ollama:latest

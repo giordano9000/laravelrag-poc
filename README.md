@@ -12,76 +12,49 @@ POC per gestione documentale con RAG (Retrieval-Augmented Generation) usando Lar
 | Vector DB | PostgreSQL 17 + pgvector |
 | PDF | smalot/pdfparser |
 | Excel | phpoffice/phpspreadsheet |
-| OCR (JPG) | thiagoalessio/tesseract_ocr |
+| OCR (JPG) | thiagoalessio/tesseract_ocr (incluso nel container) |
 | Frontend | Blade + Tailwind CSS + Alpine.js |
 
 ## Prerequisiti
 
-- PHP 8.3+
-- Composer
 - Docker e Docker Compose
-- Tesseract OCR (solo se si usano immagini JPG)
 
-### Installare Tesseract (opzionale, per OCR su JPG)
+> L'applicazione gira interamente in container Docker. PHP, Composer e Tesseract sono già inclusi nel container.
 
-```bash
-# macOS
-brew install tesseract tesseract-lang
-
-# Ubuntu/Debian
-sudo apt install tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng
-```
-
-## Setup
-
-### 1. Clona e installa dipendenze
+## Quick Start
 
 ```bash
 git clone <repo-url> laravelrag-poc
 cd laravelrag-poc
-composer install
-cp .env.example .env   # oppure usa il .env già configurato
-php artisan key:generate
+make run
 ```
 
-### 2. Avvia PostgreSQL + Ollama
+Il comando `make run`:
+1. Builda l'immagine Docker dell'applicazione
+2. Avvia PostgreSQL, Ollama, l'app e il queue worker
+3. Scarica automaticamente i modelli Ollama (llama3.1:8b + nomic-embed-text)
+4. Esegue le migrations del database
 
-```bash
-docker compose up -d
-```
-
-Questo avvia:
-- **PostgreSQL 17 + pgvector** su `localhost:5432` (user: `laravelrag`, password: `secret`, db: `laravelrag`)
-- **Ollama** su `localhost:11434`
-- **ollama-pull** (one-shot) — scarica automaticamente i modelli `llama3.1:8b` e `nomic-embed-text`
-
-> La prima volta il download dei modelli richiede ~5GB (llama3.1:8b) + ~270MB (nomic-embed-text). Puoi seguire il progresso con `docker compose logs -f ollama-pull`.
-
-### 3. Esegui le migrations
-
-```bash
-php artisan migrate
-```
-
-Crea le tabelle `documents` e `document_chunks` (con colonna `vector(768)` per gli embeddings) e abilita l'estensione pgvector.
-
-### 4. Avvia il queue worker
-
-```bash
-php artisan queue:work
-```
-
-Il worker elabora i documenti caricati in background: estrazione testo → chunking → generazione embeddings → salvataggio nel database vettoriale.
-
-### 5. Avvia il server
-
-In un altro terminale:
-
-```bash
-php artisan serve
-```
+> La prima volta il download dei modelli richiede ~5GB. Segui il progresso con `make logs-ollama`.
 
 Apri **http://localhost:8000** nel browser.
+
+## Comandi Make
+
+| Comando | Descrizione |
+|---------|-------------|
+| `make run` | Avvia tutto (build + up + migrate) |
+| `make build` | Build immagine Docker |
+| `make up` | Avvia i container |
+| `make down` | Ferma i container |
+| `make clean` | Rimuove container, volumi e immagini |
+| `make migrate` | Esegue le migrations |
+| `make fresh` | Reset database + migrations |
+| `make shell` | Shell bash nel container app |
+| `make logs` | Tutti i logs |
+| `make logs-app` | Logs applicazione |
+| `make logs-queue` | Logs queue worker |
+| `make logs-ollama` | Logs download modelli Ollama |
 
 ## Utilizzo
 
@@ -89,29 +62,19 @@ Apri **http://localhost:8000** nel browser.
 2. **Attendi l'elaborazione** — Lo stato passa da `pending` → `processing` → `ready`
 3. **Fai domande** — Scrivi nella chat a destra, il sistema cerca nei documenti e risponde in streaming
 
-## Configurazione
+## Architettura
 
-Le variabili principali nel `.env`:
-
-```env
-# Database (PostgreSQL + pgvector)
-DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_DATABASE=laravelrag
-DB_USERNAME=laravelrag
-DB_PASSWORD=secret
-
-# Ollama
-OLLAMA_URL=http://localhost:11434
-
-# Queue (necessario per elaborazione documenti)
-QUEUE_CONNECTION=database
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Docker Compose                            │
+├─────────────┬─────────────┬─────────────┬─────────────┬─────────┤
+│     app     │    queue    │  postgres   │   ollama    │ ollama- │
+│  (Laravel)  │  (worker)   │  (pgvector) │   (LLM)     │  pull   │
+│  :8000      │             │  :5432      │  :11434     │ (init)  │
+└─────────────┴─────────────┴─────────────┴─────────────┴─────────┘
 ```
 
-La configurazione AI è in `config/ai.php`. I default sono già impostati per usare Ollama come provider per generazione testo ed embeddings.
-
-## Architettura
+### Flusso elaborazione documenti
 
 ```
 Upload file
@@ -140,7 +103,11 @@ DocumentController::store()
             │
             └── Salva DocumentChunks con embeddings
                 Document status → ready
+```
 
+### Flusso chat
+
+```
 Chat (domanda utente)
     │
     ▼
@@ -175,17 +142,19 @@ app/
 ## Troubleshooting
 
 **Il documento resta in stato `processing`/`pending`**
-- Verifica che il queue worker sia attivo: `php artisan queue:work`
-- Controlla i log: `tail -f storage/logs/laravel.log`
+- Verifica i log del queue worker: `make logs-queue`
+- Verifica i log dell'app: `make logs-app`
 
 **Errore di connessione a PostgreSQL**
 - Verifica che il container sia attivo: `docker compose ps`
-- Verifica le credenziali nel `.env`
 
 **Errore di connessione a Ollama**
 - Verifica che il container sia attivo: `docker compose ps`
 - Verifica che i modelli siano scaricati: `docker compose exec ollama ollama list`
 
-**OCR non funziona (JPG)**
-- Installa Tesseract: vedi sezione Prerequisiti
-- Verifica: `tesseract --version`
+**Errore memoria Ollama (model requires more system memory)**
+- Aumenta la memoria allocata a Docker Desktop (Settings → Resources → Memory)
+- Consigliato: almeno 8GB per llama3.1:8b
+
+**Timeout PHP**
+- Il container è già configurato con `max_execution_time=300` (5 minuti)
