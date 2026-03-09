@@ -72,8 +72,8 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo "Pulling llama3.1:8b..."
-        ollama pull llama3.1:8b
+        echo "Pulling llama3.2:3b..."
+        ollama pull llama3.2:3b
         echo "Pulling nomic-embed-text..."
         ollama pull nomic-embed-text
         echo "Models ready!"

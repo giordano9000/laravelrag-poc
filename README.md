@@ -7,7 +7,7 @@ POC per gestione documentale con RAG (Retrieval-Augmented Generation) usando Lar
 | Componente | Tecnologia |
 |---|---|
 | Framework | Laravel 12 + `laravel/ai` |
-| LLM (generazione) | Ollama + llama3.1:8b |
+| LLM (generazione) | Ollama + llama3.2:3b |
 | LLM (embeddings) | Ollama + nomic-embed-text (768 dim) |
 | Vector DB | PostgreSQL 17 + pgvector |
 | PDF | smalot/pdfparser |
@@ -118,7 +118,7 @@ ChatController → DocumentAssistant agent
     │       Restituisce i chunk più rilevanti
     │
     └── LLM genera risposta (streaming SSE)
-            Ollama + llama3.1:8b
+            Ollama + llama3.2:3b
             Basata sui chunk trovati
 ```
 

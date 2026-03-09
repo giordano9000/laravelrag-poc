@@ -12,7 +12,7 @@ use Laravel\Ai\Tools\SimilaritySearch;
 use Stringable;
 
 #[Provider('ollama')]
-#[Model('llama3.1:8b')]
+#[Model('llama3.2:3b')]
 class DocumentAssistant implements Agent, HasTools
 {
     use Promptable;
