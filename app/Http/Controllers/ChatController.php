@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Agents\DocumentAssistant;
 use Illuminate\Http\Request;
+use Laravel\Ai\Streaming\Events\TextDelta;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
@@ -20,9 +21,11 @@ class ChatController extends Controller
             $stream = $agent->stream($request->input('message'));
 
             foreach ($stream as $event) {
-                echo "data: " . json_encode(['text' => (string) $event]) . "\n\n";
-                ob_flush();
-                flush();
+                if ($event instanceof TextDelta) {
+                    echo "data: " . json_encode(['text' => $event->delta]) . "\n\n";
+                    ob_flush();
+                    flush();
+                }
             }
 
             echo "data: [DONE]\n\n";
