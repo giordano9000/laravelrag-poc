@@ -53,17 +53,11 @@ docker compose up -d
 Questo avvia:
 - **PostgreSQL 17 + pgvector** su `localhost:5432` (user: `laravelrag`, password: `secret`, db: `laravelrag`)
 - **Ollama** su `localhost:11434`
+- **ollama-pull** (one-shot) — scarica automaticamente i modelli `llama3.1:8b` e `nomic-embed-text`
 
-### 3. Scarica i modelli Ollama
+> La prima volta il download dei modelli richiede ~5GB (llama3.1:8b) + ~270MB (nomic-embed-text). Puoi seguire il progresso con `docker compose logs -f ollama-pull`.
 
-```bash
-docker compose exec ollama ollama pull llama3.1:8b
-docker compose exec ollama ollama pull nomic-embed-text
-```
-
-> La prima volta il download richiede ~5GB (llama3.1:8b) + ~270MB (nomic-embed-text).
-
-### 4. Esegui le migrations
+### 3. Esegui le migrations
 
 ```bash
 php artisan migrate
@@ -71,7 +65,7 @@ php artisan migrate
 
 Crea le tabelle `documents` e `document_chunks` (con colonna `vector(768)` per gli embeddings) e abilita l'estensione pgvector.
 
-### 5. Avvia il queue worker
+### 4. Avvia il queue worker
 
 ```bash
 php artisan queue:work
@@ -79,7 +73,7 @@ php artisan queue:work
 
 Il worker elabora i documenti caricati in background: estrazione testo → chunking → generazione embeddings → salvataggio nel database vettoriale.
 
-### 6. Avvia il server
+### 5. Avvia il server
 
 In un altro terminale:
 

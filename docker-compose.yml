@@ -16,6 +16,30 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Pulling llama3.1:8b..."
+        ollama pull llama3.1:8b
+        echo "Pulling nomic-embed-text..."
+        ollama pull nomic-embed-text
+        echo "Models ready!"
+    restart: "no"
 
 volumes:
   pgdata:
