@@ -18,18 +18,21 @@ class ChatController extends Controller
         $agent = new DocumentAssistant();
 
         return new StreamedResponse(function () use ($agent, $request) {
+            // Disabilita output buffering
+            while (ob_get_level()) {
+                ob_end_flush();
+            }
+
             $stream = $agent->stream($request->input('message'));
 
             foreach ($stream as $event) {
                 if ($event instanceof TextDelta) {
                     echo "data: " . json_encode(['text' => $event->delta]) . "\n\n";
-                    ob_flush();
                     flush();
                 }
             }
 
             echo "data: [DONE]\n\n";
-            ob_flush();
             flush();
         }, 200, [
             'Content-Type' => 'text/event-stream',

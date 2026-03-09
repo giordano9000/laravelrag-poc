@@ -144,11 +144,24 @@
                     :disabled="streaming"
                 >
                 <button
+                    x-show="!streaming"
                     type="submit"
-                    :disabled="!input.trim() || streaming"
+                    :disabled="!input.trim()"
                     class="bg-blue-600 text-white rounded-xl px-6 py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                     Invia
+                </button>
+                <button
+                    x-show="streaming"
+                    x-cloak
+                    type="button"
+                    @click="stopStreaming()"
+                    class="bg-red-600 text-white rounded-xl px-6 py-3 text-sm font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
+                >
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                    Stop
                 </button>
             </form>
         </div>
@@ -167,6 +180,7 @@ function app() {
         uploadProgress: 0,
         uploadError: '',
         dragover: false,
+        abortController: null,
 
         handleDrop(e) {
             this.dragover = false;
@@ -257,6 +271,12 @@ function app() {
             }
         },
 
+        stopStreaming() {
+            if (this.abortController) {
+                this.abortController.abort();
+            }
+        },
+
         async sendMessage() {
             const text = this.input.trim();
             if (!text) return;
@@ -268,6 +288,8 @@ function app() {
 
             this.$nextTick(() => this.scrollToBottom());
 
+            this.abortController = new AbortController();
+
             try {
                 const res = await fetch('{{ route("chat") }}', {
                     method: 'POST',
@@ -277,6 +299,7 @@ function app() {
                         'Accept': 'text/event-stream',
                     },
                     body: JSON.stringify({ message: text }),
+                    signal: this.abortController.signal,
                 });
 
                 const reader = res.body.getReader();
@@ -308,10 +331,17 @@ function app() {
                     this.messages.push({ role: 'assistant', content: this.streamingContent });
                 }
             } catch (e) {
-                this.messages.push({ role: 'assistant', content: 'Errore: impossibile ottenere una risposta.' });
+                if (e.name === 'AbortError') {
+                    if (this.streamingContent) {
+                        this.messages.push({ role: 'assistant', content: this.streamingContent });
+                    }
+                } else {
+                    this.messages.push({ role: 'assistant', content: 'Errore: impossibile ottenere una risposta.' });
+                }
             } finally {
                 this.streaming = false;
                 this.streamingContent = '';
+                this.abortController = null;
                 this.$nextTick(() => this.scrollToBottom());
             }
         },
