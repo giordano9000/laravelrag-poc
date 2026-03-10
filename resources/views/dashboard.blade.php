@@ -24,7 +24,7 @@
                     type="file"
                     x-ref="fileInput"
                     @change="uploadFile($event.target.files[0])"
-                    accept=".pdf,.txt,.xls,.xlsx,.csv,.jpg,.jpeg,.doc,.docx"
+                    accept=".pdf,.txt,.xls,.xlsx,.csv,.jpg,.jpeg,.doc,.docx,.zip"
                     class="hidden"
                 >
                 <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -33,7 +33,7 @@
                 <p class="mt-1 text-sm text-gray-600">
                     <span class="font-medium text-blue-600">Clicca</span> o trascina un file
                 </p>
-                <p class="text-xs text-gray-500">PDF, DOC, DOCX, TXT, XLS, XLSX, CSV, JPG</p>
+                <p class="text-xs text-gray-500">PDF, DOC, DOCX, TXT, XLS, XLSX, CSV, JPG, ZIP</p>
             </div>
 
             {{-- Upload Progress --}}
@@ -223,8 +223,17 @@ function app() {
                     xhr.send(formData);
                 });
 
-                this.documents.unshift(response.document);
-                this.pollDocumentStatus(response.document.id);
+                if (response.documents) {
+                    // ZIP upload: multiple documents
+                    response.documents.forEach(doc => {
+                        this.documents.unshift(doc);
+                        this.pollDocumentStatus(doc.id);
+                    });
+                } else {
+                    // Single file upload
+                    this.documents.unshift(response.document);
+                    this.pollDocumentStatus(response.document.id);
+                }
             } catch (e) {
                 this.uploadError = e.message;
             } finally {
