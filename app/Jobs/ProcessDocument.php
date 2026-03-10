@@ -18,8 +18,14 @@ class ProcessDocument implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 1;
+    public int $tries = 3;
     public int $timeout = 600;
+    public int $maxExceptions = 2;
+
+    public function backoff(): array
+    {
+        return [30, 60, 120];
+    }
 
     public function __construct(
         public Document $document,
@@ -27,6 +33,12 @@ class ProcessDocument implements ShouldQueue
 
     public function handle(DocumentProcessor $processor, TextChunker $chunker): void
     {
+        // Check document still exists (may have been deleted while queued)
+        if (!Document::where('id', $this->document->id)->exists()) {
+            Log::warning("Document no longer exists, skipping", ['document_id' => $this->document->id]);
+            return;
+        }
+
         $this->document->update(['status' => 'processing']);
 
         try {
@@ -47,16 +59,22 @@ class ProcessDocument implements ShouldQueue
             // 2. Chunk text
             $chunks = $chunker->chunk($text);
 
-            // 3. Generate embeddings for all chunks
-            $texts = array_column($chunks, 'content');
-            $embeddingsResponse = Embeddings::for($texts)->generate();
+            // 3. Generate embeddings in batches to avoid overloading Ollama
+            $batchSize = 20;
+            $allEmbeddings = [];
+
+            foreach (array_chunk($chunks, $batchSize) as $batch) {
+                $texts = array_column($batch, 'content');
+                $embeddingsResponse = Embeddings::for($texts)->generate();
+                array_push($allEmbeddings, ...$embeddingsResponse->embeddings);
+            }
 
             // 4. Save chunks with embeddings
             foreach ($chunks as $i => $chunk) {
                 $this->document->chunks()->create([
                     'content' => $chunk['content'],
                     'chunk_index' => $chunk['index'],
-                    'embedding' => $embeddingsResponse->embeddings[$i],
+                    'embedding' => $allEmbeddings[$i],
                 ]);
             }
 
@@ -68,12 +86,23 @@ class ProcessDocument implements ShouldQueue
                 'chunks' => count($chunks),
             ]);
         } catch (\Throwable $e) {
-            $this->document->update(['status' => 'failed']);
+            // Only mark as failed on last attempt
+            if ($this->attempts() >= $this->tries) {
+                $this->document->update(['status' => 'failed']);
+            }
             Log::error("Document processing failed", [
                 'document_id' => $this->document->id,
+                'attempt' => $this->attempts(),
                 'error' => $e->getMessage(),
             ]);
             throw $e;
+        }
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        if (Document::where('id', $this->document->id)->exists()) {
+            $this->document->update(['status' => 'failed']);
         }
     }
 }
