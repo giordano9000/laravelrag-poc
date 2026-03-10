@@ -5,8 +5,8 @@ namespace App\Services;
 class TextChunker
 {
     public function __construct(
-        private int $chunkSize = 2000,
-        private int $overlap = 200,
+        private int $chunkSize = 600,
+        private int $overlap = 100,
         private array $separators = ["\n\n", "\n", ". ", " "],
     ) {}
 
