@@ -49,6 +49,17 @@ class DocumentController extends Controller
         }
 
         $path = $file->store('documents', 'local');
+        $contentHash = hash_file('sha256', Storage::disk('local')->path($path));
+
+        // Check for duplicates
+        $duplicate = Document::where('content_hash', $contentHash)->first();
+        if ($duplicate) {
+            Storage::disk('local')->delete($path);
+            return response()->json([
+                'message' => 'Questo documento esiste già: ' . $duplicate->title,
+                'document' => $duplicate,
+            ], 409);
+        }
 
         $document = Document::create([
             'title' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
@@ -57,6 +68,8 @@ class DocumentController extends Controller
             'file_path' => $path,
             'file_size' => $file->getSize(),
             'status' => 'pending',
+            'content_hash' => $contentHash,
+            'source_type' => 'upload',
         ]);
 
         ProcessDocument::dispatch($document);

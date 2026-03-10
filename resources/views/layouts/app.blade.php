@@ -103,5 +103,20 @@
 </head>
 <body class="h-full font-sans antialiased bg-gradient-to-br from-slate-50 via-white to-purple-50">
     @yield('content')
+
+    @hasSection('hide-nav')
+    @else
+    {{-- Floating Navigation --}}
+    <nav class="fixed bottom-6 left-6 z-40 flex items-center gap-2 glass rounded-2xl shadow-lg border border-gray-200/50 px-4 py-2">
+        <a href="{{ route('dashboard') }}" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('dashboard') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+            Chat
+        </a>
+        <a href="{{ route('sources.index') }}" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('sources.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+            Fonti
+        </a>
+    </nav>
+    @endif
 </body>
 </html>

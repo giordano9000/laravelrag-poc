@@ -227,6 +227,20 @@
                                     <span x-show="doc.status === 'processing'" class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                                     <span x-text="doc.status === 'ready' ? 'Pronto' : doc.status === 'pending' ? 'In attesa' : doc.status === 'processing' ? 'Elaborazione' : 'Errore'"></span>
                                 </span>
+                                {{-- Source badge --}}
+                                <span
+                                    x-show="doc.source_type && doc.source_type !== 'upload'"
+                                    class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium"
+                                    :class="{
+                                        'bg-blue-50 text-blue-600': doc.source_type === 'google_drive',
+                                        'bg-sky-50 text-sky-600': doc.source_type === 'onedrive',
+                                        'bg-teal-50 text-teal-600': doc.source_type === 'sharepoint',
+                                        'bg-indigo-50 text-indigo-600': doc.source_type === 'dropbox',
+                                    }"
+                                >
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                                    <span x-text="doc.source_type === 'google_drive' ? 'GDrive' : doc.source_type === 'onedrive' ? 'OneDrive' : doc.source_type === 'sharepoint' ? 'SharePoint' : doc.source_type === 'dropbox' ? 'Dropbox' : ''"></span>
+                                </span>
                                 <span class="text-xs text-gray-400" x-text="formatSize(doc.file_size)"></span>
                             </div>
                         </div>

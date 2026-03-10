@@ -93,7 +93,12 @@ class ProcessDocument implements ShouldQueue
                 ]);
             }
 
-            // 5. Mark as ready
+            // 5. Calculate content_hash if not present
+            if (!$this->document->content_hash) {
+                $this->document->update(['content_hash' => hash_file('sha256', $filePath)]);
+            }
+
+            // 6. Mark as ready
             $this->document->update(['status' => 'ready']);
 
             Log::info("Document processed successfully", [
