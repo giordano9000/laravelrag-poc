@@ -77,9 +77,29 @@ class DocumentProcessor
 
     private function extractFromWord(string $filePath, string $mimeType): string
     {
-        $readerName = $mimeType === 'application/msword' ? 'MsDoc' : 'Word2007';
+        if ($mimeType === 'application/msword') {
+            return $this->extractFromDoc($filePath);
+        }
 
-        $phpWord = WordIOFactory::load($filePath, $readerName);
+        return $this->extractFromDocx($filePath);
+    }
+
+    private function extractFromDoc(string $filePath): string
+    {
+        $output = [];
+        $returnCode = 0;
+        exec('antiword ' . escapeshellarg($filePath) . ' 2>&1', $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            throw new \RuntimeException('antiword failed: ' . implode("\n", $output));
+        }
+
+        return implode("\n", $output);
+    }
+
+    private function extractFromDocx(string $filePath): string
+    {
+        $phpWord = WordIOFactory::load($filePath, 'Word2007');
         $text = [];
 
         foreach ($phpWord->getSections() as $section) {
