@@ -18,6 +18,7 @@ class ChatController extends Controller
         $agent = new DocumentAssistant();
 
         return new StreamedResponse(function () use ($agent, $request) {
+            set_time_limit(300);
             // Disabilita output buffering
             while (ob_get_level()) {
                 ob_end_flush();
