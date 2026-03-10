@@ -11,7 +11,7 @@ class DocumentProcessor
 {
     public function extractText(string $filePath, string $mimeType): string
     {
-        return match (true) {
+        $text = match (true) {
             $mimeType === 'application/pdf' => $this->extractFromPdf($filePath),
             $mimeType === 'text/plain' => $this->extractFromTxt($filePath),
             $this->isWord($mimeType) => $this->extractFromWord($filePath, $mimeType),
@@ -19,14 +19,66 @@ class DocumentProcessor
             str_starts_with($mimeType, 'image/') => $this->extractFromImage($filePath),
             default => throw new \RuntimeException("Unsupported mime type: {$mimeType}"),
         };
+
+        // Sanitize to valid UTF-8 to prevent json_encode failures
+        return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
     }
 
     private function extractFromPdf(string $filePath): string
     {
+        // Try text extraction first
         $parser = new PdfParser();
         $pdf = $parser->parseFile($filePath);
+        $text = $pdf->getText();
 
-        return $pdf->getText();
+        // If we got meaningful text, use it
+        if (mb_strlen(trim($text)) > 50) {
+            return $text;
+        }
+
+        // Fallback: OCR via pdftoppm + tesseract (for scanned PDFs)
+        return $this->extractFromPdfWithOcr($filePath);
+    }
+
+    private function extractFromPdfWithOcr(string $filePath): string
+    {
+        $tempDir = sys_get_temp_dir() . '/pdf_ocr_' . uniqid();
+        mkdir($tempDir, 0755, true);
+
+        try {
+            // Convert PDF pages to images
+            $cmd = sprintf(
+                'pdftoppm -png -r 300 %s %s/page',
+                escapeshellarg($filePath),
+                escapeshellarg($tempDir)
+            );
+            exec($cmd, $output, $returnCode);
+
+            if ($returnCode !== 0) {
+                throw new \RuntimeException('pdftoppm failed: ' . implode("\n", $output));
+            }
+
+            // OCR each page image
+            $pages = glob($tempDir . '/page-*.png');
+            sort($pages);
+
+            $text = [];
+            foreach ($pages as $pageImage) {
+                $ocr = new TesseractOCR($pageImage);
+                $ocr->lang('ita', 'eng');
+                $pageText = $ocr->run();
+
+                if (trim($pageText) !== '') {
+                    $text[] = $pageText;
+                }
+            }
+
+            return implode("\n\n", $text);
+        } finally {
+            // Cleanup
+            array_map('unlink', glob($tempDir . '/*'));
+            rmdir($tempDir);
+        }
     }
 
     private function extractFromTxt(string $filePath): string
@@ -41,7 +93,17 @@ class DocumentProcessor
 
         foreach ($spreadsheet->getAllSheets() as $sheet) {
             $sheetName = $sheet->getTitle();
-            $data = $sheet->toArray();
+
+            try {
+                $data = $sheet->toArray(null, true, true, false);
+            } catch (\Throwable) {
+                // Fallback: read raw values without calculating formulas
+                try {
+                    $data = $sheet->toArray(null, false, false, false);
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
 
             if (empty($data)) {
                 continue;
@@ -54,8 +116,12 @@ class DocumentProcessor
                 $parts = [];
                 foreach ($row as $i => $cell) {
                     if ($cell !== null && $cell !== '') {
-                        $header = $headers[$i] ?? "Column {$i}";
-                        $parts[] = "{$header}: {$cell}";
+                        $cellStr = is_scalar($cell) ? (string) $cell : '';
+                        if ($cellStr !== '') {
+                            $header = $headers[$i] ?? "Column {$i}";
+                            $headerStr = is_scalar($header) ? (string) $header : "Column {$i}";
+                            $parts[] = "{$headerStr}: {$cellStr}";
+                        }
                     }
                 }
                 if (!empty($parts)) {

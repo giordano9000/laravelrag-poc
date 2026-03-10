@@ -12,6 +12,18 @@ class DocumentController extends Controller
 {
     private const SUPPORTED_EXTENSIONS = ['pdf', 'txt', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'doc', 'docx'];
 
+    private const EXTENSION_MIME_MAP = [
+        'pdf'  => 'application/pdf',
+        'txt'  => 'text/plain',
+        'csv'  => 'text/csv',
+        'xls'  => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'doc'  => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+    ];
+
     public function index()
     {
         $documents = Document::latest()->get();
@@ -91,12 +103,13 @@ class DocumentController extends Controller
                 }
 
                 $originalName = $extractedFile->getFilename();
+                $mimeType = self::EXTENSION_MIME_MAP[$extension] ?? mime_content_type($extractedFile->getRealPath());
                 $storedPath = Storage::disk('local')->putFile('documents', new \Illuminate\Http\File($extractedFile->getRealPath()));
 
                 $document = Document::create([
                     'title' => pathinfo($originalName, PATHINFO_FILENAME),
                     'original_filename' => $originalName,
-                    'mime_type' => mime_content_type($extractedFile->getRealPath()),
+                    'mime_type' => $mimeType,
                     'file_path' => $storedPath,
                     'file_size' => $extractedFile->getSize(),
                     'status' => 'pending',

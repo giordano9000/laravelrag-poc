@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libfreetype6-dev \
     antiword \
+    poppler-utils \
     tesseract-ocr \
     tesseract-ocr-ita \
     tesseract-ocr-eng \
@@ -24,6 +25,8 @@ RUN pecl install xdebug && docker-php-ext-enable xdebug
 # Configura PHP e Xdebug
 RUN echo "max_execution_time=300" >> /usr/local/etc/php/conf.d/custom.ini \
     && echo "memory_limit=512M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "upload_max_filesize=256M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "post_max_size=256M" >> /usr/local/etc/php/conf.d/custom.ini \
     && echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
     && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
     && echo "xdebug.client_port=9013" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
