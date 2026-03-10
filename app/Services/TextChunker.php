@@ -4,11 +4,11 @@ namespace App\Services;
 
 class TextChunker
 {
-    private const MIN_CHUNK_LENGTH = 20;
+    private const MIN_CHUNK_LENGTH = 30;
 
     public function __construct(
-        private int $chunkSize = 600,
-        private int $overlap = 100,
+        private int $chunkSize = 1000,
+        private int $overlap = 150,
         private array $separators = ["\n\n", "\n", ". ", " "],
     ) {}
 
@@ -101,8 +101,11 @@ class TextChunker
 
     private function isMeaningful(string $chunk): bool
     {
+        // Remove document prefix before checking content quality
+        $content = preg_replace('/^\[Documento:.*?\]\n?/u', '', $chunk);
+
         // Strip punctuation and whitespace to check actual content
-        $stripped = preg_replace('/[\s\p{P}]+/u', '', $chunk);
+        $stripped = preg_replace('/[\s\p{P}]+/u', '', $content);
 
         return mb_strlen($stripped) >= self::MIN_CHUNK_LENGTH;
     }

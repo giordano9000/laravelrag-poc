@@ -59,6 +59,13 @@ class ProcessDocument implements ShouldQueue
             // 2. Chunk text
             $chunks = $chunker->chunk($text);
 
+            // Prefix each chunk with document name for better retrieval
+            $docPrefix = "[Documento: {$this->document->title}]\n";
+            foreach ($chunks as &$chunk) {
+                $chunk['content'] = $docPrefix . $chunk['content'];
+            }
+            unset($chunk);
+
             // 3. Generate embeddings in batches to avoid overloading Ollama
             $batchSize = 20;
             $allEmbeddings = [];

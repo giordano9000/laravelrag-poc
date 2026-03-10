@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Agents\DocumentAssistant;
+use App\Models\Document;
 use App\Models\DocumentChunk;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -19,23 +20,53 @@ class ChatController extends Controller
 
         $message = $request->input('message');
 
-        // Cerca documenti rilevanti PRIMA di chiamare l'LLM
+        // 1. Vector similarity search
         $relevantChunks = DocumentChunk::query()
             ->whereVectorSimilarTo('embedding', $message, 0.3)
-            ->limit(5)
+            ->limit(8)
             ->get();
+
+        // 2. Search by document name — find docs whose title matches words in the query
+        $nameMatchedChunks = collect();
+        $matchedDocs = Document::where('status', 'ready')
+            ->where(function ($query) use ($message) {
+                // Split message into words and search for meaningful ones (>= 3 chars)
+                $words = array_filter(
+                    preg_split('/[\s,.\-\/]+/', $message),
+                    fn ($w) => mb_strlen($w) >= 3
+                );
+                foreach ($words as $word) {
+                    $query->orWhere('title', 'ILIKE', '%' . $word . '%')
+                          ->orWhere('original_filename', 'ILIKE', '%' . $word . '%');
+                }
+            })
+            ->pluck('id');
+
+        if ($matchedDocs->isNotEmpty()) {
+            $existingIds = $relevantChunks->pluck('id');
+            $nameMatchedChunks = DocumentChunk::whereIn('document_id', $matchedDocs)
+                ->whereNotIn('id', $existingIds)
+                ->orderBy('chunk_index')
+                ->limit(5)
+                ->get();
+        }
+
+        // 3. Merge results, vector matches first
+        $allChunks = $relevantChunks->concat($nameMatchedChunks)->unique('id');
 
         Log::info('Chat request', [
             'message' => $message,
-            'chunks_found' => $relevantChunks->count()
+            'vector_chunks' => $relevantChunks->count(),
+            'name_matched_chunks' => $nameMatchedChunks->count(),
+            'total_chunks' => $allChunks->count(),
         ]);
 
         // Costruisci il contesto dai chunks trovati
-        $sourceDocuments = $relevantChunks->map(function ($chunk) {
+        $sourceDocuments = $allChunks->map(function ($chunk) {
             return $chunk->document;
         })->unique('id')->values();
 
-        $context = $relevantChunks->map(function ($chunk) {
+        $context = $allChunks->map(function ($chunk) {
             $docTitle = $chunk->document->title ?? 'Documento sconosciuto';
             return "--- Da: {$docTitle} ---\n{$chunk->content}";
         })->join("\n\n");

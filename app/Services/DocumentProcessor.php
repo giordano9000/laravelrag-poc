@@ -31,13 +31,44 @@ class DocumentProcessor
         $pdf = $parser->parseFile($filePath);
         $text = $pdf->getText();
 
-        // If we got meaningful text, use it
-        if (mb_strlen(trim($text)) > 50) {
+        // Check if we got meaningful text (not just garbage from bad font encoding)
+        if ($this->isValidExtractedText($text)) {
             return $text;
         }
 
-        // Fallback: OCR via pdftoppm + tesseract (for scanned PDFs)
+        // Fallback: OCR via pdftoppm + tesseract (for scanned PDFs or PDFs with bad font encoding)
         return $this->extractFromPdfWithOcr($filePath);
+    }
+
+    /**
+     * Check if extracted text is valid and readable, not garbled from font encoding issues.
+     */
+    private function isValidExtractedText(string $text): bool
+    {
+        $text = trim($text);
+
+        // Too short - probably empty or failed extraction
+        if (mb_strlen($text) < 50) {
+            return false;
+        }
+
+        // Count "normal" alphanumeric characters vs total
+        $alphanumeric = preg_match_all('/[a-zA-Z0-9àèéìòùÀÈÉÌÒÙäöüÄÖÜß]/u', $text);
+        $total = mb_strlen($text);
+
+        // If less than 40% alphanumeric, it's probably garbled text
+        $ratio = $alphanumeric / max($total, 1);
+        if ($ratio < 0.4) {
+            return false;
+        }
+
+        // Check for common garbled patterns (sequences of symbols, equals signs, brackets)
+        $garbagePatterns = preg_match_all('/[=\[\]{}|<>]{3,}|[^\w\s,.;:!?\'"()-]{5,}/u', $text);
+        if ($garbagePatterns > 10) {
+            return false;
+        }
+
+        return true;
     }
 
     private function extractFromPdfWithOcr(string $filePath): string
