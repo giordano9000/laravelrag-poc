@@ -1,23 +1,100 @@
 @extends('layouts.app')
 
 @section('content')
-<div x-data="app()" class="h-full flex">
+<div x-data="app()" class="h-screen flex overflow-hidden">
 
-    {{-- Sidebar: Documenti --}}
-    <aside class="w-80 bg-white border-r border-gray-200 flex flex-col h-screen">
-        <div class="p-4 border-b border-gray-200">
-            <h1 class="text-lg font-bold text-gray-800">RAG Documents</h1>
-            <p class="text-xs text-gray-500 mt-1">Carica documenti e fai domande</p>
+    {{-- Toast Notification --}}
+    <div
+        x-show="toast.show"
+        x-cloak
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+        x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+        class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-medium"
+        :class="{
+            'bg-red-500 text-white': toast.type === 'error',
+            'bg-emerald-500 text-white': toast.type === 'success',
+        }"
+    >
+        <template x-if="toast.type === 'success'">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+        </template>
+        <template x-if="toast.type === 'error'">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </template>
+        <span x-text="toast.message"></span>
+        <button @click="toast.show = false" class="ml-2 hover:opacity-70 transition-opacity">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+    </div>
+
+    {{-- Confirm Modal --}}
+    <div x-show="confirmModal.show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="confirmModal.cancel()"></div>
+        <div
+            x-show="confirmModal.show"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-90"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-90"
+            class="relative bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
+        >
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900" x-text="confirmModal.title"></h3>
+                <p class="text-gray-500 mt-2" x-text="confirmModal.message"></p>
+            </div>
+            <div class="flex gap-3">
+                <button
+                    @click="confirmModal.cancel()"
+                    class="flex-1 px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all"
+                >
+                    Annulla
+                </button>
+                <button
+                    @click="confirmModal.confirm()"
+                    class="flex-1 px-6 py-3 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-all hover:shadow-lg hover:shadow-red-500/25"
+                >
+                    Elimina
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Sidebar --}}
+    <aside class="w-96 bg-white/80 backdrop-blur-xl border-r border-gray-200/50 flex flex-col h-full shadow-xl">
+        {{-- Header --}}
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl gradient-bg flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900">DocuMind AI</h1>
+                    <p class="text-sm text-gray-500">Intelligent Document Assistant</p>
+                </div>
+            </div>
         </div>
 
         {{-- Upload Area --}}
-        <div class="p-4 border-b border-gray-200">
+        <div class="p-4">
             <div
                 @dragover.prevent="dragover = true"
                 @dragleave="dragover = false"
                 @drop.prevent="handleDrop($event)"
-                :class="dragover ? 'border-blue-500 bg-blue-50' : 'border-gray-300'"
-                class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors"
+                :class="dragover ? 'upload-zone dragover scale-[1.02]' : 'upload-zone'"
+                class="rounded-2xl p-6 text-center cursor-pointer transition-all duration-300"
                 @click="$refs.fileInput.click()"
             >
                 <input
@@ -27,110 +104,140 @@
                     accept=".pdf,.txt,.xls,.xlsx,.csv,.jpg,.jpeg,.doc,.docx,.zip"
                     class="hidden"
                 >
-                <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <p class="mt-1 text-sm text-gray-600">
-                    <span class="font-medium text-blue-600">Clicca</span> o trascina un file
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                </div>
+                <p class="text-sm font-semibold text-gray-700 mb-1">
+                    Trascina i tuoi documenti qui
                 </p>
-                <p class="text-xs text-gray-500">PDF, DOC, DOCX, TXT, XLS, XLSX, CSV, JPG, ZIP</p>
+                <p class="text-xs text-gray-500">o clicca per selezionare</p>
+                <div class="flex flex-wrap justify-center gap-1 mt-3">
+                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">PDF</span>
+                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">DOCX</span>
+                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">XLS</span>
+                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">TXT</span>
+                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">JPG</span>
+                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">ZIP</span>
+                </div>
             </div>
 
             {{-- Upload Progress --}}
-            <div x-show="uploading" x-cloak class="mt-3">
-                <div class="flex justify-between text-xs text-gray-600 mb-1">
-                    <span>Caricamento...</span>
-                    <span x-text="uploadProgress + '%'"></span>
+            <div x-show="uploading" x-cloak class="mt-4 p-4 bg-indigo-50 rounded-2xl">
+                <div class="flex justify-between text-sm mb-2">
+                    <span class="font-medium text-indigo-700">Caricamento in corso...</span>
+                    <span class="font-bold text-indigo-700" x-text="uploadProgress + '%'"></span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-blue-600 h-2 rounded-full transition-all" :style="'width: ' + uploadProgress + '%'"></div>
+                <div class="w-full bg-indigo-100 rounded-full h-2 overflow-hidden">
+                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300" :style="'width: ' + uploadProgress + '%'"></div>
                 </div>
             </div>
 
-            {{-- Global Processing Progress --}}
-            <div x-show="processingCount > 0" x-cloak class="mt-3">
-                <div class="flex justify-between text-xs text-gray-600 mb-1">
-                    <span>Elaborazione documenti...</span>
-                    <span x-text="processedCount + '/' + totalProcessing"></span>
+            {{-- Processing Progress --}}
+            <div x-show="processingCount > 0" x-cloak class="mt-4 p-4 bg-emerald-50 rounded-2xl">
+                <div class="flex justify-between text-sm mb-2">
+                    <span class="font-medium text-emerald-700">Elaborazione documenti...</span>
+                    <span class="font-bold text-emerald-700" x-text="processedCount + '/' + totalProcessing"></span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-green-500 h-2 rounded-full transition-all" :style="'width: ' + processingProgress + '%'"></div>
+                <div class="w-full bg-emerald-100 rounded-full h-2 overflow-hidden">
+                    <div class="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-300" :style="'width: ' + processingProgress + '%'"></div>
                 </div>
-                <p class="text-xs text-gray-400 mt-1" x-text="processingCount + ' in elaborazione, ' + pendingCount + ' in attesa'"></p>
             </div>
 
             {{-- Upload Error --}}
-            <div x-show="uploadError" x-cloak class="mt-2 text-xs text-red-600" x-text="uploadError"></div>
+            <div x-show="uploadError" x-cloak class="mt-4 p-4 bg-red-50 rounded-2xl text-sm text-red-600 font-medium" x-text="uploadError"></div>
         </div>
 
-        {{-- Search & Filters --}}
-        <div class="p-3 border-b border-gray-200 space-y-2">
-            <input
-                x-model="searchQuery"
-                type="text"
-                placeholder="Cerca documenti..."
-                class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-            <div class="flex gap-1">
-                <button
-                    @click="statusFilter = 'all'"
-                    :class="statusFilter === 'all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
+        {{-- Search --}}
+        <div class="px-4 pb-3">
+            <div class="relative">
+                <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                    x-model="searchQuery"
+                    type="text"
+                    placeholder="Cerca documenti..."
+                    class="w-full pl-12 pr-4 py-3 bg-gray-50 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
                 >
-                    Tutti <span class="opacity-70" x-text="'(' + documents.length + ')'"></span>
-                </button>
-                <button
-                    @click="statusFilter = 'ready'"
-                    :class="statusFilter === 'ready' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'"
-                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
-                >
-                    Pronti <span class="opacity-70" x-text="'(' + documents.filter(d => d.status === 'ready').length + ')'"></span>
-                </button>
-                <button
-                    @click="statusFilter = 'pending'"
-                    :class="statusFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'"
-                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
-                >
-                    Pending <span class="opacity-70" x-text="'(' + documents.filter(d => d.status === 'pending' || d.status === 'processing').length + ')'"></span>
-                </button>
-                <button
-                    @click="statusFilter = 'failed'"
-                    :class="statusFilter === 'failed' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'"
-                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
-                >
-                    Falliti <span class="opacity-70" x-text="'(' + documents.filter(d => d.status === 'failed').length + ')'"></span>
-                </button>
             </div>
         </div>
 
+        {{-- Filters --}}
+        <div class="px-4 pb-4 flex gap-2">
+            <button
+                @click="statusFilter = 'all'"
+                :class="statusFilter === 'all' ? 'bg-gray-900 text-white shadow-lg' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            >
+                Tutti <span class="opacity-60" x-text="documents.length"></span>
+            </button>
+            <button
+                @click="statusFilter = 'ready'"
+                :class="statusFilter === 'ready' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            >
+                Pronti <span class="opacity-60" x-text="documents.filter(d => d.status === 'ready').length"></span>
+            </button>
+            <button
+                @click="statusFilter = 'pending'"
+                :class="statusFilter === 'pending' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            >
+                In coda <span class="opacity-60" x-text="documents.filter(d => d.status === 'pending' || d.status === 'processing').length"></span>
+            </button>
+        </div>
+
         {{-- Document List --}}
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto px-4 pb-4 scrollbar-thin">
             <template x-for="doc in filteredDocuments" :key="doc.id">
-                <div class="p-3 border-b border-gray-100 hover:bg-gray-50 group">
-                    <div class="flex items-start justify-between">
+                <div class="doc-card p-4 rounded-2xl mb-2 border border-transparent hover:border-indigo-100 group">
+                    <div class="flex items-start gap-3">
+                        {{-- File Icon --}}
+                        <div
+                            class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            :class="{
+                                'bg-red-100 text-red-600': doc.mime_type?.includes('pdf'),
+                                'bg-blue-100 text-blue-600': doc.mime_type?.includes('word') || doc.mime_type?.includes('document'),
+                                'bg-emerald-100 text-emerald-600': doc.mime_type?.includes('sheet') || doc.mime_type?.includes('excel') || doc.mime_type?.includes('csv'),
+                                'bg-purple-100 text-purple-600': doc.mime_type?.includes('image'),
+                                'bg-gray-100 text-gray-600': !doc.mime_type
+                            }"
+                        >
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+
+                        {{-- Info --}}
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-800 truncate" x-text="doc.title"></p>
-                            <p class="text-xs text-gray-500 truncate" x-text="doc.original_filename"></p>
-                            <div class="flex items-center gap-2 mt-1">
+                            <p class="text-sm font-semibold text-gray-900 truncate" x-text="doc.title"></p>
+                            <p class="text-xs text-gray-500 truncate mt-0.5" x-text="doc.original_filename"></p>
+                            <div class="flex items-center gap-2 mt-2">
                                 <span
-                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
+                                    class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium"
                                     :class="{
-                                        'bg-yellow-100 text-yellow-800': doc.status === 'pending',
-                                        'bg-blue-100 text-blue-800': doc.status === 'processing',
-                                        'bg-green-100 text-green-800': doc.status === 'ready',
-                                        'bg-red-100 text-red-800': doc.status === 'failed',
+                                        'bg-amber-100 text-amber-700': doc.status === 'pending',
+                                        'bg-blue-100 text-blue-700': doc.status === 'processing',
+                                        'bg-emerald-100 text-emerald-700': doc.status === 'ready',
+                                        'bg-red-100 text-red-700': doc.status === 'failed',
                                     }"
-                                    x-text="doc.status"
-                                ></span>
+                                >
+                                    <span x-show="doc.status === 'processing'" class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                    <span x-text="doc.status === 'ready' ? 'Pronto' : doc.status === 'pending' ? 'In attesa' : doc.status === 'processing' ? 'Elaborazione' : 'Errore'"></span>
+                                </span>
                                 <span class="text-xs text-gray-400" x-text="formatSize(doc.file_size)"></span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+
+                        {{-- Actions --}}
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <a
                                 :href="'/documents/' + doc.id + '/preview'"
                                 target="_blank"
                                 @click.stop
-                                class="text-gray-400 hover:text-blue-500 p-1"
+                                class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                                 title="Anteprima"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,7 +248,7 @@
                             <a
                                 :href="'/documents/' + doc.id + '/download'"
                                 @click.stop
-                                class="text-gray-400 hover:text-green-500 p-1"
+                                class="p-2 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
                                 title="Scarica"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,7 +257,7 @@
                             </a>
                             <button
                                 @click.stop="deleteDocument(doc.id)"
-                                class="text-gray-400 hover:text-red-500 p-1"
+                                class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
                                 title="Elimina"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,130 +268,178 @@
                     </div>
                 </div>
             </template>
-            <div x-show="filteredDocuments.length === 0" class="p-4 text-center text-sm text-gray-500">
-                <span x-show="documents.length === 0">Nessun documento caricato</span>
-                <span x-show="documents.length > 0">Nessun risultato</span>
+
+            {{-- Empty State --}}
+            <div x-show="filteredDocuments.length === 0" class="text-center py-12">
+                <div class="w-20 h-20 rounded-3xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <p class="text-gray-500 font-medium" x-show="documents.length === 0">Nessun documento caricato</p>
+                <p class="text-gray-500 font-medium" x-show="documents.length > 0">Nessun risultato</p>
+                <p class="text-gray-400 text-sm mt-1" x-show="documents.length === 0">Carica il tuo primo documento per iniziare</p>
             </div>
         </div>
     </aside>
 
-    {{-- Main: Chat Area --}}
-    <main class="flex-1 flex flex-col h-screen">
+    {{-- Main Chat Area --}}
+    <main class="flex-1 flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
         {{-- Chat Header --}}
-        <div class="p-4 border-b border-gray-200 bg-white">
-            <h2 class="text-lg font-semibold text-gray-800">Chat con i tuoi documenti</h2>
-            <p class="text-xs text-gray-500">Fai domande basate sui documenti caricati</p>
+        <div class="px-8 py-6 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Chat con i tuoi documenti</h2>
+                    <p class="text-gray-500 mt-1">Fai domande e ottieni risposte basate sui documenti caricati</p>
+                </div>
+                <div class="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-xl">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-sm font-medium text-emerald-700">AI Attiva</span>
+                </div>
+            </div>
         </div>
 
         {{-- Messages --}}
-        <div class="flex-1 overflow-y-auto p-4 space-y-4" x-ref="chatContainer">
-            <template x-for="(msg, i) in messages" :key="i">
-                <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-                    <div
-                        :class="msg.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-2xl rounded-br-md'
-                            : 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-bl-md'"
-                        class="max-w-2xl px-4 py-3 shadow-sm"
-                    >
-                        <div class="text-sm whitespace-pre-wrap" x-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content"></div>
-                        {{-- Source documents --}}
-                        <template x-if="msg.sources && msg.sources.length > 0">
-                            <div class="mt-3 pt-2 border-t" :class="msg.role === 'user' ? 'border-blue-400' : 'border-gray-200'">
-                                <p class="text-xs font-medium mb-1.5" :class="msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'">Fonti:</p>
-                                <div class="flex flex-col gap-1.5">
-                                    <template x-for="src in msg.sources" :key="src.id">
-                                        <div
-                                            class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs"
-                                            :class="msg.role === 'user' ? 'bg-blue-500/50' : 'bg-gray-50 border border-gray-200'"
-                                        >
-                                            <div class="flex items-center gap-1.5 min-w-0">
-                                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="flex-1 overflow-y-auto p-8 scrollbar-thin" x-ref="chatContainer">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <template x-for="(msg, i) in messages" :key="i">
+                    <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'" class="animate-fade-in">
+                        {{-- AI Avatar --}}
+                        <template x-if="msg.role === 'assistant'">
+                            <div class="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center mr-3 shrink-0 shadow-lg shadow-purple-500/20">
+                                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                            </div>
+                        </template>
+
+                        <div
+                            :class="msg.role === 'user'
+                                ? 'chat-bubble-user text-white rounded-3xl rounded-br-lg'
+                                : 'chat-bubble-ai text-gray-800 rounded-3xl rounded-bl-lg border border-gray-100'"
+                            class="max-w-2xl px-6 py-4"
+                        >
+                            <div class="text-sm leading-relaxed whitespace-pre-wrap" x-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content"></div>
+
+                            {{-- Source Documents --}}
+                            <template x-if="msg.sources && msg.sources.length > 0">
+                                <div class="mt-4 pt-4 border-t" :class="msg.role === 'user' ? 'border-white/20' : 'border-gray-100'">
+                                    <p class="text-xs font-semibold mb-3 flex items-center gap-2" :class="msg.role === 'user' ? 'text-white/70' : 'text-gray-500'">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                        </svg>
+                                        Fonti utilizzate
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="src in msg.sources" :key="src.id">
+                                            <a
+                                                :href="'/documents/' + src.id + '/preview'"
+                                                target="_blank"
+                                                class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                                                :class="msg.role === 'user'
+                                                    ? 'bg-white/20 text-white hover:bg-white/30'
+                                                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                 </svg>
-                                                <span class="truncate" x-text="src.original_filename"></span>
-                                            </div>
-                                            <div class="flex items-center gap-1 shrink-0">
-                                                <a
-                                                    :href="'/documents/' + src.id + '/preview'"
-                                                    target="_blank"
-                                                    class="p-1 rounded hover:bg-black/10 transition-colors"
-                                                    title="Anteprima"
-                                                    @click.stop
-                                                >
-                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                    </svg>
-                                                </a>
-                                                <a
-                                                    :href="'/documents/' + src.id + '/download'"
-                                                    class="p-1 rounded hover:bg-black/10 transition-colors"
-                                                    title="Scarica"
-                                                    @click.stop
-                                                >
-                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                    </svg>
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </template>
+                                                <span class="truncate max-w-[150px]" x-text="src.original_filename"></span>
+                                            </a>
+                                        </template>
+                                    </div>
                                 </div>
+                            </template>
+                        </div>
+
+                        {{-- User Avatar --}}
+                        <template x-if="msg.role === 'user'">
+                            <div class="w-10 h-10 rounded-2xl bg-gray-200 flex items-center justify-center ml-3 shrink-0">
+                                <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
                             </div>
                         </template>
                     </div>
-                </div>
-            </template>
+                </template>
 
-            {{-- Streaming indicator --}}
-            <div x-show="streaming" class="flex justify-start">
-                <div class="bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-bl-md max-w-2xl px-4 py-3 shadow-sm">
-                    <div class="text-sm whitespace-pre-wrap" x-html="renderMarkdown(streamingContent)"></div>
-                    <span class="inline-block w-2 h-4 bg-gray-400 animate-pulse ml-0.5"></span>
+                {{-- Streaming --}}
+                <div x-show="streaming" class="flex justify-start animate-fade-in">
+                    <div class="w-10 h-10 rounded-2xl gradient-bg flex items-center justify-center mr-3 shrink-0 shadow-lg shadow-purple-500/20">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                    </div>
+                    <div class="chat-bubble-ai text-gray-800 rounded-3xl rounded-bl-lg border border-gray-100 max-w-2xl px-6 py-4">
+                        <div x-show="!streamingContent" class="typing-indicator flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                            <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                            <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                        </div>
+                        <div x-show="streamingContent" class="text-sm leading-relaxed whitespace-pre-wrap" x-html="renderMarkdown(streamingContent)"></div>
+                        <span x-show="streamingContent" class="inline-block w-0.5 h-5 bg-indigo-500 animate-pulse ml-0.5 align-middle"></span>
+                    </div>
                 </div>
-            </div>
 
-            {{-- Empty state --}}
-            <div x-show="messages.length === 0 && !streaming" class="flex items-center justify-center h-full">
-                <div class="text-center">
-                    <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    <p class="mt-2 text-sm text-gray-500">Carica dei documenti e inizia a fare domande</p>
+                {{-- Empty State --}}
+                <div x-show="messages.length === 0 && !streaming" class="flex items-center justify-center min-h-[400px]">
+                    <div class="text-center max-w-md">
+                        <div class="w-24 h-24 rounded-3xl gradient-bg flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-purple-500/30 animate-float">
+                            <svg class="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Inizia una conversazione</h3>
+                        <p class="text-gray-500 mb-6">Carica i tuoi documenti e chiedi qualsiasi cosa. L'AI analizzerà il contenuto e ti fornirà risposte precise.</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <span class="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-medium">"Riassumi il documento"</span>
+                            <span class="px-4 py-2 bg-purple-50 text-purple-700 rounded-xl text-sm font-medium">"Quali sono i punti chiave?"</span>
+                            <span class="px-4 py-2 bg-pink-50 text-pink-700 rounded-xl text-sm font-medium">"Cerca informazioni su..."</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {{-- Input --}}
-        <div class="p-4 border-t border-gray-200 bg-white">
-            <form @submit.prevent="sendMessage" class="flex gap-3">
-                <input
-                    x-model="input"
-                    type="text"
-                    placeholder="Scrivi una domanda sui tuoi documenti..."
-                    class="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    :disabled="streaming"
-                >
-                <button
-                    x-show="!streaming"
-                    type="submit"
-                    :disabled="!input.trim()"
-                    class="bg-blue-600 text-white rounded-xl px-6 py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                    Invia
-                </button>
-                <button
-                    x-show="streaming"
-                    x-cloak
-                    type="button"
-                    @click="stopStreaming()"
-                    class="bg-red-600 text-white rounded-xl px-6 py-3 text-sm font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
-                >
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <rect x="6" y="6" width="12" height="12" rx="2" />
-                    </svg>
-                    Stop
-                </button>
+        {{-- Input Area --}}
+        <div class="p-6 border-t border-gray-100 bg-white/80 backdrop-blur-sm">
+            <form @submit.prevent="sendMessage" class="max-w-4xl mx-auto">
+                <div class="flex gap-4">
+                    <div class="flex-1 relative">
+                        <input
+                            x-model="input"
+                            type="text"
+                            placeholder="Scrivi la tua domanda..."
+                            class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all pr-12"
+                            :disabled="streaming"
+                        >
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                            <kbd class="px-2 py-1 bg-gray-100 rounded">Enter</kbd>
+                        </div>
+                    </div>
+                    <button
+                        x-show="!streaming"
+                        type="submit"
+                        :disabled="!input.trim()"
+                        class="btn-primary text-white rounded-2xl px-8 py-4 text-sm font-semibold flex items-center gap-2"
+                    >
+                        <span>Invia</span>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </button>
+                    <button
+                        x-show="streaming"
+                        x-cloak
+                        type="button"
+                        @click="stopStreaming()"
+                        class="bg-red-500 hover:bg-red-600 text-white rounded-2xl px-8 py-4 text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-red-500/30"
+                    >
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <rect x="6" y="6" width="12" height="12" rx="2" />
+                        </svg>
+                        <span>Stop</span>
+                    </button>
+                </div>
             </form>
         </div>
     </main>
@@ -307,6 +462,12 @@ function app() {
         searchQuery: '',
         statusFilter: 'all',
         totalProcessing: 0,
+        toast: { show: false, message: '', type: 'error' },
+        confirmModal: {
+            show: false, title: '', message: '', resolve: null,
+            confirm() { this.show = false; if (this.resolve) this.resolve(true); },
+            cancel() { this.show = false; if (this.resolve) this.resolve(false); },
+        },
 
         get filteredDocuments() {
             return this.documents.filter(doc => {
@@ -392,8 +553,11 @@ function app() {
                     this.documents.unshift(doc);
                     this.pollDocumentStatus(doc.id);
                 });
+
+                this.showToast('Documento caricato con successo', 'success');
             } catch (e) {
                 this.uploadError = e.message;
+                this.showToast(e.message, 'error');
             } finally {
                 this.uploading = false;
                 this.uploadProgress = 0;
@@ -414,9 +578,11 @@ function app() {
                     }
                     if (doc.status === 'ready' || doc.status === 'failed') {
                         clearInterval(interval);
-                        // Reset totalProcessing when all done
                         if (this.processingCount === 0) {
                             this.totalProcessing = 0;
+                        }
+                        if (doc.status === 'ready') {
+                            this.showToast(`"${doc.title}" pronto per le domande`, 'success');
                         }
                     }
                 } catch {
@@ -425,8 +591,24 @@ function app() {
             }, 3000);
         },
 
+        showToast(message, type = 'error') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => this.toast.show = false, 4000);
+        },
+
+        askConfirm(title, message) {
+            return new Promise(resolve => {
+                this.confirmModal = {
+                    show: true, title, message, resolve,
+                    confirm() { this.show = false; resolve(true); },
+                    cancel() { this.show = false; resolve(false); },
+                };
+            });
+        },
+
         async deleteDocument(id) {
-            if (!confirm('Eliminare questo documento?')) return;
+            const ok = await this.askConfirm('Elimina documento', 'Sei sicuro di voler eliminare questo documento? Questa azione non può essere annullata.');
+            if (!ok) return;
 
             try {
                 await fetch(`/documents/${id}`, {
@@ -437,8 +619,9 @@ function app() {
                     },
                 });
                 this.documents = this.documents.filter(d => d.id !== id);
+                this.showToast('Documento eliminato', 'success');
             } catch (e) {
-                alert('Errore durante l\'eliminazione');
+                this.showToast('Errore durante l\'eliminazione', 'error');
             }
         },
 
@@ -518,7 +701,7 @@ function app() {
                         });
                     }
                 } else {
-                    this.messages.push({ role: 'assistant', content: 'Errore: impossibile ottenere una risposta.' });
+                    this.messages.push({ role: 'assistant', content: 'Mi dispiace, si è verificato un errore. Riprova tra poco.' });
                 }
             } finally {
                 this.streaming = false;
@@ -548,16 +731,12 @@ function app() {
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-sm">$1</code>')
+                .replace(/`(.*?)`/g, '<code class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
                 .replace(/\n/g, '<br>');
         }
     };
 }
 </script>
-
-<style>
-    [x-cloak] { display: none !important; }
-</style>
 @endsection
