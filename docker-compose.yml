@@ -55,8 +55,8 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      - OLLAMA_NUM_PARALLEL=1
-      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=2
       - OLLAMA_KEEP_ALIVE=5m
     healthcheck:
       test: ["CMD", "ollama", "list"]
@@ -77,7 +77,7 @@ services:
     command:
       - |
         echo "Pulling llama3.2:3b..."
-        ollama pull llama3.2:3b
+        ollama pull qwen2.5:7b
         echo "Pulling nomic-embed-text..."
         ollama pull nomic-embed-text
         echo "Models ready!"
