@@ -4,6 +4,8 @@ namespace App\Services;
 
 class TextChunker
 {
+    private const MIN_CHUNK_LENGTH = 20;
+
     public function __construct(
         private int $chunkSize = 600,
         private int $overlap = 100,
@@ -26,6 +28,9 @@ class TextChunker
         }
 
         $chunks = $this->splitRecursive($text, $this->separators);
+
+        // Filter out chunks that are too short or contain no meaningful content
+        $chunks = array_values(array_filter($chunks, fn (string $chunk) => $this->isMeaningful($chunk)));
 
         return array_values(array_map(
             fn (string $chunk, int $i) => ['content' => $chunk, 'index' => $i],
@@ -92,6 +97,14 @@ class TextChunker
         }
 
         return $chunks;
+    }
+
+    private function isMeaningful(string $chunk): bool
+    {
+        // Strip punctuation and whitespace to check actual content
+        $stripped = preg_replace('/[\s\p{P}]+/u', '', $chunk);
+
+        return mb_strlen($stripped) >= self::MIN_CHUNK_LENGTH;
     }
 
     private function getOverlapText(string $text, string $separator): string
