@@ -31,6 +31,10 @@ class ChatController extends Controller
         ]);
 
         // Costruisci il contesto dai chunks trovati
+        $sourceDocuments = $relevantChunks->map(function ($chunk) {
+            return $chunk->document;
+        })->unique('id')->values();
+
         $context = $relevantChunks->map(function ($chunk) {
             $docTitle = $chunk->document->title ?? 'Documento sconosciuto';
             return "--- Da: {$docTitle} ---\n{$chunk->content}";
@@ -41,11 +45,21 @@ class ChatController extends Controller
         // Crea l'agent con il contesto
         $agent = (new DocumentAssistant())->withContext($context);
 
-        return new StreamedResponse(function () use ($agent, $message) {
+        return new StreamedResponse(function () use ($agent, $message, $sourceDocuments) {
             set_time_limit(300);
             while (ob_get_level()) {
                 ob_end_flush();
             }
+
+            // Send source documents metadata first
+            echo "data: " . json_encode([
+                'sources' => $sourceDocuments->map(fn ($doc) => [
+                    'id' => $doc->id,
+                    'title' => $doc->title,
+                    'original_filename' => $doc->original_filename,
+                ])->toArray()
+            ]) . "\n\n";
+            flush();
 
             $stream = $agent->stream($message);
 

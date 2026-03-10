@@ -160,6 +160,36 @@ class DocumentController extends Controller
         return response()->json($document);
     }
 
+    public function download(Document $document)
+    {
+        $path = Storage::disk('local')->path($document->file_path);
+
+        return response()->download($path, $document->original_filename);
+    }
+
+    public function preview(Document $document)
+    {
+        $path = Storage::disk('local')->path($document->file_path);
+
+        $previewable = [
+            'application/pdf',
+            'text/plain',
+            'text/csv',
+            'image/jpeg',
+            'image/png',
+        ];
+
+        if (in_array($document->mime_type, $previewable)) {
+            return response()->file($path, [
+                'Content-Type' => $document->mime_type,
+                'Content-Disposition' => 'inline; filename="' . $document->original_filename . '"',
+            ]);
+        }
+
+        // Non-previewable: fallback to download
+        return response()->download($path, $document->original_filename);
+    }
+
     public function destroy(Document $document)
     {
         Storage::disk('local')->delete($document->file_path);

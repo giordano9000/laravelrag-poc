@@ -47,13 +47,65 @@
                 </div>
             </div>
 
+            {{-- Global Processing Progress --}}
+            <div x-show="processingCount > 0" x-cloak class="mt-3">
+                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                    <span>Elaborazione documenti...</span>
+                    <span x-text="processedCount + '/' + totalProcessing"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-500 h-2 rounded-full transition-all" :style="'width: ' + processingProgress + '%'"></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1" x-text="processingCount + ' in elaborazione, ' + pendingCount + ' in attesa'"></p>
+            </div>
+
             {{-- Upload Error --}}
             <div x-show="uploadError" x-cloak class="mt-2 text-xs text-red-600" x-text="uploadError"></div>
         </div>
 
+        {{-- Search & Filters --}}
+        <div class="p-3 border-b border-gray-200 space-y-2">
+            <input
+                x-model="searchQuery"
+                type="text"
+                placeholder="Cerca documenti..."
+                class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+            <div class="flex gap-1">
+                <button
+                    @click="statusFilter = 'all'"
+                    :class="statusFilter === 'all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
+                >
+                    Tutti <span class="opacity-70" x-text="'(' + documents.length + ')'"></span>
+                </button>
+                <button
+                    @click="statusFilter = 'ready'"
+                    :class="statusFilter === 'ready' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'"
+                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
+                >
+                    Pronti <span class="opacity-70" x-text="'(' + documents.filter(d => d.status === 'ready').length + ')'"></span>
+                </button>
+                <button
+                    @click="statusFilter = 'pending'"
+                    :class="statusFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'"
+                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
+                >
+                    Pending <span class="opacity-70" x-text="'(' + documents.filter(d => d.status === 'pending' || d.status === 'processing').length + ')'"></span>
+                </button>
+                <button
+                    @click="statusFilter = 'failed'"
+                    :class="statusFilter === 'failed' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'"
+                    class="px-2 py-1 rounded text-xs font-medium transition-colors"
+                >
+                    Falliti <span class="opacity-70" x-text="'(' + documents.filter(d => d.status === 'failed').length + ')'"></span>
+                </button>
+            </div>
+        </div>
+
         {{-- Document List --}}
         <div class="flex-1 overflow-y-auto">
-            <template x-for="doc in documents" :key="doc.id">
+            <template x-for="doc in filteredDocuments" :key="doc.id">
                 <div class="p-3 border-b border-gray-100 hover:bg-gray-50 group">
                     <div class="flex items-start justify-between">
                         <div class="flex-1 min-w-0">
@@ -85,8 +137,9 @@
                     </div>
                 </div>
             </template>
-            <div x-show="documents.length === 0" class="p-4 text-center text-sm text-gray-500">
-                Nessun documento caricato
+            <div x-show="filteredDocuments.length === 0" class="p-4 text-center text-sm text-gray-500">
+                <span x-show="documents.length === 0">Nessun documento caricato</span>
+                <span x-show="documents.length > 0">Nessun risultato</span>
             </div>
         </div>
     </aside>
@@ -110,6 +163,51 @@
                         class="max-w-2xl px-4 py-3 shadow-sm"
                     >
                         <div class="text-sm whitespace-pre-wrap" x-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content"></div>
+                        {{-- Source documents --}}
+                        <template x-if="msg.sources && msg.sources.length > 0">
+                            <div class="mt-3 pt-2 border-t" :class="msg.role === 'user' ? 'border-blue-400' : 'border-gray-200'">
+                                <p class="text-xs font-medium mb-1.5" :class="msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'">Fonti:</p>
+                                <div class="flex flex-col gap-1.5">
+                                    <template x-for="src in msg.sources" :key="src.id">
+                                        <div
+                                            class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs"
+                                            :class="msg.role === 'user' ? 'bg-blue-500/50' : 'bg-gray-50 border border-gray-200'"
+                                        >
+                                            <div class="flex items-center gap-1.5 min-w-0">
+                                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <span class="truncate" x-text="src.original_filename"></span>
+                                            </div>
+                                            <div class="flex items-center gap-1 shrink-0">
+                                                <a
+                                                    :href="'/documents/' + src.id + '/preview'"
+                                                    target="_blank"
+                                                    class="p-1 rounded hover:bg-black/10 transition-colors"
+                                                    title="Anteprima"
+                                                    @click.stop
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </a>
+                                                <a
+                                                    :href="'/documents/' + src.id + '/download'"
+                                                    class="p-1 rounded hover:bg-black/10 transition-colors"
+                                                    title="Scarica"
+                                                    @click.stop
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </template>
@@ -176,11 +274,51 @@ function app() {
         input: '',
         streaming: false,
         streamingContent: '',
+        streamingSources: [],
         uploading: false,
         uploadProgress: 0,
         uploadError: '',
         dragover: false,
         abortController: null,
+        searchQuery: '',
+        statusFilter: 'all',
+        totalProcessing: 0,
+
+        get filteredDocuments() {
+            return this.documents.filter(doc => {
+                const matchesSearch = this.searchQuery === '' ||
+                    doc.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                    doc.original_filename.toLowerCase().includes(this.searchQuery.toLowerCase());
+
+                let matchesStatus;
+                if (this.statusFilter === 'all') {
+                    matchesStatus = true;
+                } else if (this.statusFilter === 'pending') {
+                    matchesStatus = doc.status === 'pending' || doc.status === 'processing';
+                } else {
+                    matchesStatus = doc.status === this.statusFilter;
+                }
+
+                return matchesSearch && matchesStatus;
+            });
+        },
+
+        get pendingCount() {
+            return this.documents.filter(d => d.status === 'pending').length;
+        },
+
+        get processingCount() {
+            return this.documents.filter(d => d.status === 'processing' || d.status === 'pending').length;
+        },
+
+        get processedCount() {
+            return this.totalProcessing - this.processingCount;
+        },
+
+        get processingProgress() {
+            if (this.totalProcessing === 0) return 0;
+            return Math.round((this.processedCount / this.totalProcessing) * 100);
+        },
 
         handleDrop(e) {
             this.dragover = false;
@@ -223,17 +361,13 @@ function app() {
                     xhr.send(formData);
                 });
 
-                if (response.documents) {
-                    // ZIP upload: multiple documents
-                    response.documents.forEach(doc => {
-                        this.documents.unshift(doc);
-                        this.pollDocumentStatus(doc.id);
-                    });
-                } else {
-                    // Single file upload
-                    this.documents.unshift(response.document);
-                    this.pollDocumentStatus(response.document.id);
-                }
+                const newDocs = response.documents || [response.document];
+                this.totalProcessing = this.processingCount + newDocs.length;
+
+                newDocs.forEach(doc => {
+                    this.documents.unshift(doc);
+                    this.pollDocumentStatus(doc.id);
+                });
             } catch (e) {
                 this.uploadError = e.message;
             } finally {
@@ -256,6 +390,10 @@ function app() {
                     }
                     if (doc.status === 'ready' || doc.status === 'failed') {
                         clearInterval(interval);
+                        // Reset totalProcessing when all done
+                        if (this.processingCount === 0) {
+                            this.totalProcessing = 0;
+                        }
                     }
                 } catch {
                     clearInterval(interval);
@@ -294,6 +432,7 @@ function app() {
             this.input = '';
             this.streaming = true;
             this.streamingContent = '';
+            this.streamingSources = [];
 
             this.$nextTick(() => this.scrollToBottom());
 
@@ -327,7 +466,9 @@ function app() {
                             if (data === '[DONE]') continue;
                             try {
                                 const parsed = JSON.parse(data);
-                                if (parsed.text) {
+                                if (parsed.sources) {
+                                    this.streamingSources = parsed.sources;
+                                } else if (parsed.text) {
                                     this.streamingContent += parsed.text;
                                     this.scrollToBottom();
                                 }
@@ -337,12 +478,20 @@ function app() {
                 }
 
                 if (this.streamingContent) {
-                    this.messages.push({ role: 'assistant', content: this.streamingContent });
+                    this.messages.push({
+                        role: 'assistant',
+                        content: this.streamingContent,
+                        sources: this.streamingSources,
+                    });
                 }
             } catch (e) {
                 if (e.name === 'AbortError') {
                     if (this.streamingContent) {
-                        this.messages.push({ role: 'assistant', content: this.streamingContent });
+                        this.messages.push({
+                            role: 'assistant',
+                            content: this.streamingContent,
+                            sources: this.streamingSources,
+                        });
                     }
                 } else {
                     this.messages.push({ role: 'assistant', content: 'Errore: impossibile ottenere una risposta.' });
@@ -350,6 +499,7 @@ function app() {
             } finally {
                 this.streaming = false;
                 this.streamingContent = '';
+                this.streamingSources = [];
                 this.abortController = null;
                 this.$nextTick(() => this.scrollToBottom());
             }
