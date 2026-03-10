@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Agents\DocumentAssistant;
+use App\Models\DocumentChunk;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Streaming\Events\TextDelta;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -15,16 +17,37 @@ class ChatController extends Controller
             'message' => 'required|string|max:2000',
         ]);
 
-        $agent = new DocumentAssistant();
+        $message = $request->input('message');
 
-        return new StreamedResponse(function () use ($agent, $request) {
+        // Cerca documenti rilevanti PRIMA di chiamare l'LLM
+        $relevantChunks = DocumentChunk::query()
+            ->whereVectorSimilarTo('embedding', $message, 0.3)
+            ->limit(5)
+            ->get();
+
+        Log::info('Chat request', [
+            'message' => $message,
+            'chunks_found' => $relevantChunks->count()
+        ]);
+
+        // Costruisci il contesto dai chunks trovati
+        $context = $relevantChunks->map(function ($chunk) {
+            $docTitle = $chunk->document->title ?? 'Documento sconosciuto';
+            return "--- Da: {$docTitle} ---\n{$chunk->content}";
+        })->join("\n\n");
+
+        Log::info('Context built', ['context_length' => strlen($context)]);
+
+        // Crea l'agent con il contesto
+        $agent = (new DocumentAssistant())->withContext($context);
+
+        return new StreamedResponse(function () use ($agent, $message) {
             set_time_limit(300);
-            // Disabilita output buffering
             while (ob_get_level()) {
                 ob_end_flush();
             }
 
-            $stream = $agent->stream($request->input('message'));
+            $stream = $agent->stream($message);
 
             foreach ($stream as $event) {
                 if ($event instanceof TextDelta) {

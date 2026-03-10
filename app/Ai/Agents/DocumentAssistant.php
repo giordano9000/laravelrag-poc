@@ -2,48 +2,44 @@
 
 namespace App\Ai\Agents;
 
-use App\Models\DocumentChunk;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Contracts\Agent;
-use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Promptable;
-use Laravel\Ai\Tools\SimilaritySearch;
 use Stringable;
 
 #[Provider('ollama')]
 #[Model('llama3.2:3b')]
-class DocumentAssistant implements Agent, HasTools
+class DocumentAssistant implements Agent
 {
     use Promptable;
 
-    public function instructions(): Stringable|string
-    {
-        return <<<'PROMPT'
-Sei un assistente documentale intelligente. Il tuo compito è rispondere alle domande degli utenti
-basandoti ESCLUSIVAMENTE sui documenti caricati nel sistema.
+    private string $context = '';
 
-Regole:
-1. Usa SEMPRE lo strumento di ricerca per trovare informazioni pertinenti nei documenti prima di rispondere.
-2. Basa le tue risposte SOLO sulle informazioni trovate nei documenti. Non inventare informazioni.
-3. Se non trovi informazioni pertinenti nei documenti, dillo chiaramente all'utente.
-4. Cita i documenti fonte quando possibile, indicando da quale documento proviene l'informazione.
-5. Rispondi nella stessa lingua della domanda dell'utente.
-6. Sii preciso e conciso nelle risposte.
-PROMPT;
+    public function withContext(string $context): self
+    {
+        $this->context = $context;
+        return $this;
     }
 
-    public function tools(): iterable
+    public function instructions(): Stringable|string
     {
-        return [
-            SimilaritySearch::usingModel(
-                model: DocumentChunk::class,
-                column: 'embedding',
-                minSimilarity: 0.3,
-                limit: 3,
-            )->withDescription(
-                'Cerca nei documenti caricati informazioni pertinenti alla query. Restituisce i passaggi più rilevanti.'
-            ),
-        ];
+        $basePrompt = <<<'PROMPT'
+Sei un assistente documentale intelligente. Il tuo compito è rispondere alle domande degli utenti
+basandoti ESCLUSIVAMENTE sui documenti forniti nel contesto.
+
+Regole:
+1. Basa le tue risposte SOLO sulle informazioni trovate nei documenti. Non inventare informazioni.
+2. Se il contesto non contiene informazioni pertinenti alla domanda, dillo chiaramente all'utente.
+3. Cita i documenti fonte quando possibile.
+4. Rispondi nella stessa lingua della domanda dell'utente.
+5. Sii preciso e conciso nelle risposte.
+PROMPT;
+
+        if ($this->context) {
+            return $basePrompt . "\n\n--- DOCUMENTI RILEVANTI ---\n" . $this->context . "\n--- FINE DOCUMENTI ---";
+        }
+
+        return $basePrompt;
     }
 }
