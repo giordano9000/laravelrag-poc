@@ -60,11 +60,19 @@ class ProcessDocument implements ShouldQueue
             $chunks = $chunker->chunk($text);
 
             // Prefix each chunk with document name for better retrieval
+            // and filter out chunks that are only whitespace/punctuation after prefixing
             $docPrefix = "[Documento: {$this->document->title}]\n";
-            foreach ($chunks as &$chunk) {
-                $chunk['content'] = $docPrefix . $chunk['content'];
+            $filtered = [];
+            foreach ($chunks as $chunk) {
+                $contentOnly = $chunk['content'];
+                $stripped = preg_replace('/[\s\p{P}]+/u', '', $contentOnly);
+                if (mb_strlen($stripped) < 30) {
+                    continue;
+                }
+                $chunk['content'] = $docPrefix . $contentOnly;
+                $filtered[] = $chunk;
             }
-            unset($chunk);
+            $chunks = array_values($filtered);
 
             // 3. Generate embeddings in batches to avoid overloading Ollama
             $batchSize = 20;
