@@ -58,6 +58,7 @@ services:
       - OLLAMA_NUM_PARALLEL=2
       - OLLAMA_MAX_LOADED_MODELS=2
       - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_CONTEXT_LENGTH=8192
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -77,7 +78,7 @@ services:
     command:
       - |
         echo "Pulling llama3.2:3b..."
-        ollama pull qwen2.5:7b
+        ollama pull llama3.2:3b
         echo "Pulling nomic-embed-text..."
         ollama pull nomic-embed-text
         echo "Models ready!"

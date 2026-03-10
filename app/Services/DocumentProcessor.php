@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use Smalot\PdfParser\Parser as PdfParser;
 use thiagoalessio\TesseractOCR\TesseractOCR;
 
@@ -13,6 +14,7 @@ class DocumentProcessor
         return match (true) {
             $mimeType === 'application/pdf' => $this->extractFromPdf($filePath),
             $mimeType === 'text/plain' => $this->extractFromTxt($filePath),
+            $this->isWord($mimeType) => $this->extractFromWord($filePath, $mimeType),
             $this->isSpreadsheet($mimeType) => $this->extractFromSpreadsheet($filePath),
             str_starts_with($mimeType, 'image/') => $this->extractFromImage($filePath),
             default => throw new \RuntimeException("Unsupported mime type: {$mimeType}"),
@@ -71,6 +73,35 @@ class DocumentProcessor
         $ocr->lang('ita', 'eng');
 
         return $ocr->run();
+    }
+
+    private function extractFromWord(string $filePath, string $mimeType): string
+    {
+        $readerName = $mimeType === 'application/msword' ? 'MsDoc' : 'Word2007';
+
+        $phpWord = WordIOFactory::load($filePath, $readerName);
+        $text = [];
+
+        foreach ($phpWord->getSections() as $section) {
+            foreach ($section->getElements() as $element) {
+                if (method_exists($element, 'getText')) {
+                    $line = $element->getText();
+                    if ($line !== null && trim($line) !== '') {
+                        $text[] = $line;
+                    }
+                }
+            }
+        }
+
+        return implode("\n", $text);
+    }
+
+    private function isWord(string $mimeType): bool
+    {
+        return in_array($mimeType, [
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ]);
     }
 
     private function isSpreadsheet(string $mimeType): bool

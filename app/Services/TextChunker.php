@@ -51,13 +51,22 @@ class TextChunker
         $current = '';
 
         foreach ($parts as $part) {
+            // If a single part exceeds chunkSize, split it with remaining separators
+            if (strlen($part) > $this->chunkSize) {
+                if (trim($current) !== '') {
+                    $chunks[] = trim($current);
+                    $current = '';
+                }
+                $subChunks = $this->splitRecursive($part, $separators);
+                array_push($chunks, ...$subChunks);
+                continue;
+            }
+
             $candidate = $current === '' ? $part : $current . $separator . $part;
 
             if (strlen($candidate) > $this->chunkSize && $current !== '') {
                 $chunks[] = trim($current);
-                // Start new chunk with overlap from end of previous
-                $overlapText = $this->getOverlapText($current, $separator);
-                $current = $overlapText !== '' ? $overlapText . $separator . $part : $part;
+                $current = $part;
             } else {
                 $current = $candidate;
             }

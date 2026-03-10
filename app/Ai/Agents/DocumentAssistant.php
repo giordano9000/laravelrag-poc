@@ -12,7 +12,7 @@ use Laravel\Ai\Tools\SimilaritySearch;
 use Stringable;
 
 #[Provider('ollama')]
-#[Model('qwen2.5:7b')]
+#[Model('llama3.2:3b')]
 class DocumentAssistant implements Agent, HasTools
 {
     use Promptable;
@@ -40,7 +40,7 @@ PROMPT;
                 model: DocumentChunk::class,
                 column: 'embedding',
                 minSimilarity: 0.3,
-                limit: 5,
+                limit: 3,
             )->withDescription(
                 'Cerca nei documenti caricati informazioni pertinenti alla query. Restituisce i passaggi più rilevanti.'
             ),

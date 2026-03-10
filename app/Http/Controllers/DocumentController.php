@@ -23,7 +23,7 @@ class DocumentController extends Controller
                 'required',
                 'file',
                 'max:51200', // 50MB
-                'mimes:pdf,txt,xls,xlsx,csv,jpg,jpeg',
+                'mimes:pdf,txt,xls,xlsx,csv,jpg,jpeg,doc,docx',
             ],
         ]);
 
