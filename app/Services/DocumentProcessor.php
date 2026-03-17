@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\DTOs\ExtractedContent;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use Smalot\PdfParser\Parser as PdfParser;
@@ -9,19 +10,24 @@ use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class DocumentProcessor
 {
-    public function extractText(string $filePath, string $mimeType): string
+    public function extractText(string $filePath, string $mimeType): ExtractedContent
     {
+        if ($this->isSpreadsheet($mimeType)) {
+            return $this->extractFromSpreadsheet($filePath);
+        }
+
         $text = match (true) {
             $mimeType === 'application/pdf' => $this->extractFromPdf($filePath),
             $mimeType === 'text/plain' => $this->extractFromTxt($filePath),
             $this->isWord($mimeType) => $this->extractFromWord($filePath, $mimeType),
-            $this->isSpreadsheet($mimeType) => $this->extractFromSpreadsheet($filePath),
             str_starts_with($mimeType, 'image/') => $this->extractFromImage($filePath),
             default => throw new \RuntimeException("Unsupported mime type: {$mimeType}"),
         };
 
         // Sanitize to valid UTF-8 to prevent json_encode failures
-        return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+
+        return new ExtractedContent(text: $text, type: 'text');
     }
 
     private function extractFromPdf(string $filePath): string
@@ -117,10 +123,11 @@ class DocumentProcessor
         return file_get_contents($filePath);
     }
 
-    private function extractFromSpreadsheet(string $filePath): string
+    private function extractFromSpreadsheet(string $filePath): ExtractedContent
     {
         $spreadsheet = IOFactory::load($filePath);
-        $lines = [];
+        $sheets = [];
+        $previewLines = [];
 
         foreach ($spreadsheet->getAllSheets() as $sheet) {
             $sheetName = $sheet->getTitle();
@@ -128,7 +135,6 @@ class DocumentProcessor
             try {
                 $data = $sheet->toArray(null, true, true, false);
             } catch (\Throwable) {
-                // Fallback: read raw values without calculating formulas
                 try {
                     $data = $sheet->toArray(null, false, false, false);
                 } catch (\Throwable) {
@@ -140,28 +146,61 @@ class DocumentProcessor
                 continue;
             }
 
-            $lines[] = "--- Sheet: {$sheetName} ---";
-            $headers = array_shift($data);
+            // First row as headers
+            $rawHeaders = array_shift($data);
+            $headers = [];
+            foreach ($rawHeaders as $i => $h) {
+                $hStr = ($h !== null && is_scalar($h)) ? trim((string) $h) : '';
+                $headers[] = $hStr !== '' ? $hStr : 'Column ' . ($i + 1);
+            }
 
+            $headerCount = count($headers);
+
+            // Process rows: pad to header length, remove fully empty rows
+            $rows = [];
             foreach ($data as $row) {
-                $parts = [];
-                foreach ($row as $i => $cell) {
+                // Pad row to header count
+                $row = array_pad(array_values($row), $headerCount, null);
+                $row = array_slice($row, 0, $headerCount);
+
+                // Skip fully empty rows
+                $hasValue = false;
+                foreach ($row as $cell) {
                     if ($cell !== null && $cell !== '') {
-                        $cellStr = is_scalar($cell) ? (string) $cell : '';
-                        if ($cellStr !== '') {
-                            $header = $headers[$i] ?? "Column {$i}";
-                            $headerStr = is_scalar($header) ? (string) $header : "Column {$i}";
-                            $parts[] = "{$headerStr}: {$cellStr}";
-                        }
+                        $hasValue = true;
+                        break;
                     }
                 }
-                if (!empty($parts)) {
-                    $lines[] = implode(' | ', $parts);
+                if (!$hasValue) {
+                    continue;
                 }
+
+                $rows[] = $row;
             }
+
+            if (empty($rows)) {
+                continue;
+            }
+
+            $sheets[] = [
+                'name' => $sheetName,
+                'headers' => $headers,
+                'rows' => $rows,
+            ];
+
+            // Build preview text
+            $previewLines[] = "Sheet: {$sheetName} ({$headerCount} colonne, " . count($rows) . " righe)";
+            $previewLines[] = "Colonne: " . implode(', ', $headers);
         }
 
-        return implode("\n", $lines);
+        $previewText = implode("\n", $previewLines);
+        $previewText = mb_convert_encoding($previewText, 'UTF-8', 'UTF-8');
+
+        return new ExtractedContent(
+            text: $previewText,
+            type: 'spreadsheet',
+            sheets: $sheets,
+        );
     }
 
     private function extractFromImage(string $filePath): string
