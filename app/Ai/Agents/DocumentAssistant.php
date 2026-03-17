@@ -22,6 +22,11 @@ class DocumentAssistant implements Agent
         return $this;
     }
 
+    public function timeout(): int
+    {
+        return 180;
+    }
+
     public function instructions(): Stringable|string
     {
         $basePrompt = <<<'PROMPT'

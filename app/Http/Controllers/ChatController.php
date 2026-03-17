@@ -23,7 +23,7 @@ class ChatController extends Controller
         // 1. Vector similarity search
         $relevantChunks = DocumentChunk::query()
             ->whereVectorSimilarTo('embedding', $message, 0.3)
-            ->limit(8)
+            ->limit(5)
             ->get();
 
         // 2. Search by document name — find docs whose title matches words in the query
@@ -47,7 +47,7 @@ class ChatController extends Controller
             $nameMatchedChunks = DocumentChunk::whereIn('document_id', $matchedDocs)
                 ->whereNotIn('id', $existingIds)
                 ->orderBy('chunk_index')
-                ->limit(5)
+                ->limit(3)
                 ->get();
         }
 
@@ -92,13 +92,23 @@ class ChatController extends Controller
             ]) . "\n\n";
             flush();
 
-            $stream = $agent->stream($message);
+            try {
+                $stream = $agent->stream($message);
 
-            foreach ($stream as $event) {
-                if ($event instanceof TextDelta) {
-                    echo "data: " . json_encode(['text' => $event->delta]) . "\n\n";
-                    flush();
+                foreach ($stream as $event) {
+                    if ($event instanceof TextDelta) {
+                        echo "data: " . json_encode(['text' => $event->delta]) . "\n\n";
+                        flush();
+                    }
                 }
+            } catch (\Throwable $e) {
+                Log::error('Chat streaming error', [
+                    'error' => $e->getMessage(),
+                    'message' => $message,
+                ]);
+
+                echo "data: " . json_encode(['error' => 'Si è verificato un errore nella generazione della risposta. Verifica che Ollama sia in esecuzione.']) . "\n\n";
+                flush();
             }
 
             echo "data: [DONE]\n\n";
