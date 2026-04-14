@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\SourceConnectionController;
+use App\Http\Controllers\SyncLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DocumentController::class, 'index'])->name('dashboard');
@@ -17,6 +18,8 @@ Route::post('/chat', ChatController::class)->name('chat');
 // Source Connections
 Route::get('/sources', [SourceConnectionController::class, 'index'])->name('sources.index');
 Route::post('/sources', [SourceConnectionController::class, 'store'])->name('sources.store');
+Route::get('/sources/{connection}/edit', [SourceConnectionController::class, 'edit'])->name('sources.edit');
+Route::put('/sources/{connection}', [SourceConnectionController::class, 'update'])->name('sources.update');
 Route::delete('/sources/{connection}', [SourceConnectionController::class, 'destroy'])->name('sources.destroy');
 Route::get('/sources/{connection}/auth', [SourceConnectionController::class, 'redirectToAuth'])->name('sources.auth');
 Route::get('/sources/callback/{provider}', [SourceConnectionController::class, 'handleCallback'])->name('sources.callback');
@@ -24,3 +27,8 @@ Route::get('/sources/{connection}/browse', [SourceConnectionController::class, '
 Route::post('/sources/{connection}/import', [SourceConnectionController::class, 'import'])->name('sources.import');
 Route::post('/sources/{connection}/sync', [SourceConnectionController::class, 'sync'])->name('sources.sync');
 Route::post('/sources/{connection}/full-sync', [SourceConnectionController::class, 'fullSync'])->name('sources.fullSync');
+
+// Sync Logs
+Route::get('/sync-logs', [SyncLogController::class, 'index'])->name('sync-logs.index');
+Route::get('/sync-logs/{syncLog}', [SyncLogController::class, 'show'])->name('sync-logs.show');
+Route::delete('/sync-logs/{syncLog}', [SyncLogController::class, 'destroy'])->name('sync-logs.destroy');

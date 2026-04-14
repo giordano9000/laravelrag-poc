@@ -29,6 +29,9 @@ class SourceConnectionController extends Controller
             'metadata' => 'nullable|array',
             'metadata.tenant_id' => 'nullable|string',
             'metadata.site_id' => 'nullable|string',
+            'folder_path' => 'nullable', // Can be string or array
+            'auto_sync' => 'nullable|boolean',
+            'sync_frequency' => 'nullable|in:hourly,every_3_hours,every_6_hours,daily,twice_daily',
         ]);
 
         $connection = SourceConnection::create([
@@ -37,12 +40,70 @@ class SourceConnectionController extends Controller
             'client_id' => $request->client_id,
             'client_secret' => $request->client_secret,
             'metadata' => $request->metadata,
+            'folder_path' => $request->folder_path,
+            'auto_sync' => $request->auto_sync ?? false,
+            'sync_frequency' => $request->sync_frequency,
             'status' => 'pending',
         ]);
+
+        if ($connection->auto_sync && $connection->sync_frequency) {
+            $connection->next_sync_at = $connection->calculateNextSyncAt();
+            $connection->save();
+        }
 
         return response()->json([
             'message' => 'Connessione creata. Procedi con l\'autenticazione OAuth.',
             'connection' => $connection,
+        ]);
+    }
+
+    public function edit(SourceConnection $connection)
+    {
+        return response()->json(['connection' => $connection]);
+    }
+
+    public function update(Request $request, SourceConnection $connection)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'client_id' => 'nullable|string',
+            'client_secret' => 'nullable|string',
+            'metadata' => 'nullable|array',
+            'metadata.tenant_id' => 'nullable|string',
+            'metadata.site_id' => 'nullable|string',
+            'folder_path' => 'nullable', // Can be string or array
+            'auto_sync' => 'nullable|boolean',
+            'sync_frequency' => 'nullable|in:hourly,every_3_hours,every_6_hours,daily,twice_daily',
+        ]);
+
+        $updateData = [
+            'name' => $request->name,
+            'metadata' => $request->metadata,
+            'folder_path' => $request->folder_path,
+            'auto_sync' => $request->auto_sync ?? false,
+            'sync_frequency' => $request->sync_frequency,
+        ];
+
+        // Only update credentials if they are provided (not empty)
+        if ($request->filled('client_id')) {
+            $updateData['client_id'] = $request->client_id;
+        }
+        if ($request->filled('client_secret')) {
+            $updateData['client_secret'] = $request->client_secret;
+        }
+
+        $connection->update($updateData);
+
+        if ($connection->auto_sync && $connection->sync_frequency) {
+            $connection->next_sync_at = $connection->calculateNextSyncAt();
+        } else {
+            $connection->next_sync_at = null;
+        }
+        $connection->save();
+
+        return response()->json([
+            'message' => 'Connessione aggiornata con successo.',
+            'connection' => $connection->fresh(),
         ]);
     }
 
@@ -117,11 +178,13 @@ class SourceConnectionController extends Controller
             $syncService->ensureValidToken($connection, $provider);
             $connection->refresh();
 
-            $folderId = $request->query('folder_id', '');
+            // Use folder_id from connection if no folder_id is provided
+            $folderId = $request->query('folder_id', $connection->folder_id ?? '');
             $items = $provider->listItems($folderId);
 
             return response()->json([
                 'items' => array_map(fn ($item) => $item->toArray(), $items),
+                'current_folder' => $folderId,
             ]);
         } catch (\Throwable $e) {
             Log::error("Browse failed", [
@@ -159,6 +222,12 @@ class SourceConnectionController extends Controller
 
         SyncSourceConnection::dispatch($connection);
 
+        // Update next sync time if auto sync is enabled
+        if ($connection->auto_sync && $connection->sync_frequency) {
+            $connection->next_sync_at = $connection->calculateNextSyncAt();
+            $connection->save();
+        }
+
         return response()->json([
             'message' => 'Sincronizzazione avviata.',
         ]);
@@ -171,6 +240,12 @@ class SourceConnectionController extends Controller
         }
 
         SyncSourceConnection::dispatch($connection, true); // full sync flag
+
+        // Update next sync time if auto sync is enabled
+        if ($connection->auto_sync && $connection->sync_frequency) {
+            $connection->next_sync_at = $connection->calculateNextSyncAt();
+            $connection->save();
+        }
 
         return response()->json([
             'message' => 'Sincronizzazione completa avviata.',

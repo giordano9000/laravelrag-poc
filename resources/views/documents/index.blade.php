@@ -1,32 +1,34 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="min-h-screen pb-24" x-data="documentsManager()">
+<div class="h-[calc(100vh-4rem)] overflow-y-auto" x-data="documentsManager()">
     {{-- Page Header --}}
-    <div class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm mb-8">
-        <div class="max-w-7xl mx-auto px-6 py-6">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center gap-4">
-                    <a href="{{ route('dashboard') }}" class="p-2 rounded-xl hover:bg-gray-100 transition-all" title="Torna alla Dashboard">
-                        <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                    </a>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">Gestione Documenti</h1>
-                        <p class="text-sm text-gray-500 mt-1">Visualizza e gestisci tutti i documenti importati</p>
-                    </div>
-                </div>
+    <div class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Gestione Documenti</h1>
+                <p class="text-sm text-gray-500 mt-1">Visualizza e gestisci tutti i documenti importati</p>
             </div>
+        </div>
+    </div>
 
-            {{-- Filters --}}
+    {{-- Filters Section --}}
+    <div class="bg-gray-50/80 border-b border-gray-200/50 mb-8">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-sm font-semibold text-gray-700">Filtri e Ricerca:</span>
+
                 {{-- Search --}}
-                <div class="relative">
+                <div class="relative flex-1 max-w-md">
                     <input
                         type="text"
                         x-model="searchQuery"
                         @input="filterDocuments"
                         placeholder="Cerca documenti..."
-                        class="w-64 pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        class="w-full pl-10 pr-4 py-2 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                     >
                     <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -37,7 +39,7 @@
                 <select
                     x-model="statusFilter"
                     @change="filterDocuments"
-                    class="px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    class="px-4 py-2 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                 >
                     <option value="">Tutti gli stati</option>
                     <option value="completed">Completati</option>
@@ -49,7 +51,7 @@
                 <select
                     x-model="sourceFilter"
                     @change="filterDocuments"
-                    class="px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    class="px-4 py-2 bg-white rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                 >
                     <option value="">Tutte le fonti</option>
                     <option value="upload">Upload</option>

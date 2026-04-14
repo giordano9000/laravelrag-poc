@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div x-data="sourcesApp()" class="min-h-screen">
+<div x-data="sourcesApp()" class="h-[calc(100vh-4rem)] overflow-y-auto">
 
     {{-- Toast Notification --}}
     <div
@@ -60,29 +60,29 @@
         </div>
     </div>
 
-    {{-- Add Connection Modal --}}
-    <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAddModal = false"></div>
+    {{-- Add/Edit Connection Modal --}}
+    <div x-show="showAddModal || showEditModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAddModal = false; showEditModal = false"></div>
         <div
-            x-show="showAddModal"
+            x-show="showAddModal || showEditModal"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="opacity-0 scale-90"
             x-transition:enter-end="opacity-100 scale-100"
             x-transition:leave="transition ease-in duration-200"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-90"
-            class="relative bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg"
+            class="relative bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto"
         >
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-bold text-gray-900">Aggiungi Connessione</h3>
-                <button @click="showAddModal = false" class="p-2 rounded-xl hover:bg-gray-100 transition-all">
+                <h3 class="text-xl font-bold text-gray-900" x-text="showEditModal ? 'Modifica Connessione' : 'Aggiungi Connessione'"></h3>
+                <button @click="showAddModal = false; showEditModal = false" class="p-2 rounded-xl hover:bg-gray-100 transition-all">
                     <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
 
-            <form @submit.prevent="createConnection">
-                {{-- Provider Selection --}}
-                <div class="mb-5">
+            <form @submit.prevent="showEditModal ? updateConnection() : createConnection()">
+                {{-- Provider Selection (only for new connections) --}}
+                <div x-show="!showEditModal" class="mb-5">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Provider</label>
                     <div class="grid grid-cols-2 gap-3">
                         <template x-for="p in providers" :key="p.value">
@@ -109,14 +109,32 @@
 
                 {{-- Client ID --}}
                 <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Client ID</label>
-                    <input x-model="newConnection.client_id" type="text" required placeholder="OAuth Client ID" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-mono">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">
+                        Client ID
+                        <span x-show="!showEditModal" class="text-red-500">*</span>
+                    </label>
+                    <input
+                        x-model="newConnection.client_id"
+                        type="text"
+                        :required="!showEditModal"
+                        :placeholder="showEditModal ? 'Lascia vuoto per non modificare' : 'OAuth Client ID'"
+                        class="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-mono">
+                    <p x-show="showEditModal" class="text-xs text-gray-500 mt-1">Lascia vuoto se non vuoi modificare le credenziali OAuth</p>
                 </div>
 
                 {{-- Client Secret --}}
                 <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-700 mb-1">Client Secret</label>
-                    <input x-model="newConnection.client_secret" type="password" required placeholder="OAuth Client Secret" class="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-mono">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">
+                        Client Secret
+                        <span x-show="!showEditModal" class="text-red-500">*</span>
+                    </label>
+                    <input
+                        x-model="newConnection.client_secret"
+                        type="password"
+                        :required="!showEditModal"
+                        :placeholder="showEditModal ? 'Lascia vuoto per non modificare' : 'OAuth Client Secret'"
+                        class="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-mono">
+                    <p x-show="showEditModal" class="text-xs text-gray-500 mt-1">Lascia vuoto se non vuoi modificare le credenziali OAuth</p>
                 </div>
 
                 {{-- SharePoint: Tenant ID --}}
@@ -135,13 +153,73 @@
                     </div>
                 </template>
 
+                {{-- Folder Path with browse button --}}
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Cartella di Sincronizzazione (opzionale)</label>
+                    <div class="flex gap-2">
+                        <input
+                            :value="getFolderName(newConnection.folder_path)"
+                            @input="newConnection.folder_path = $event.target.value"
+                            type="text"
+                            placeholder="Percorso cartella (lascia vuoto per root)"
+                            :readonly="showEditModal && editingConnection?.status === 'connected'"
+                            class="flex-1 px-4 py-3 bg-gray-50 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-mono"
+                            :class="{'cursor-not-allowed bg-gray-100': showEditModal && editingConnection?.status === 'connected'}"
+                        >
+                        <button
+                            x-show="showEditModal && editingConnection?.status === 'connected'"
+                            type="button"
+                            @click="openFolderSelector()"
+                            class="px-4 py-3 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-semibold hover:bg-indigo-100 transition-all"
+                            title="Sfoglia cartelle"
+                        >
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <template x-if="showEditModal && editingConnection?.status === 'connected'">
+                            <span>Usa il pulsante sfoglia per selezionare una cartella</span>
+                        </template>
+                        <template x-if="!showEditModal || editingConnection?.status !== 'connected'">
+                            <span>Specifica una cartella per limitare la sincronizzazione solo a quella cartella</span>
+                        </template>
+                    </p>
+                </div>
+
+                {{-- Auto Sync Settings --}}
+                <div class="mb-4 p-4 bg-gray-50 rounded-xl">
+                    <div class="flex items-center gap-3 mb-3">
+                        <input
+                            x-model="newConnection.auto_sync"
+                            type="checkbox"
+                            id="auto_sync"
+                            class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
+                        >
+                        <label for="auto_sync" class="text-sm font-semibold text-gray-700">Sincronizzazione Automatica</label>
+                    </div>
+
+                    <div x-show="newConnection.auto_sync" x-transition class="mt-3">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Frequenza</label>
+                        <select x-model="newConnection.sync_frequency" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                            <option value="">Seleziona frequenza...</option>
+                            <option value="hourly">Ogni ora</option>
+                            <option value="every_3_hours">Ogni 3 ore</option>
+                            <option value="every_6_hours">Ogni 6 ore</option>
+                            <option value="twice_daily">2 volte al giorno</option>
+                            <option value="daily">Una volta al giorno</option>
+                        </select>
+                    </div>
+                </div>
+
                 <button
                     type="submit"
-                    :disabled="creatingConnection"
+                    :disabled="creatingConnection || updatingConnection"
                     class="w-full btn-primary text-white rounded-xl px-6 py-3 text-sm font-semibold mt-2"
                 >
-                    <span x-show="!creatingConnection">Crea Connessione</span>
+                    <span x-show="!creatingConnection && !updatingConnection && !showEditModal">Crea Connessione</span>
+                    <span x-show="!creatingConnection && !updatingConnection && showEditModal">Aggiorna Connessione</span>
                     <span x-show="creatingConnection">Creazione...</span>
+                    <span x-show="updatingConnection">Aggiornamento...</span>
                 </button>
             </form>
         </div>
@@ -163,11 +241,12 @@
             {{-- Browser Header --}}
             <div class="p-6 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <div>
-                    <h3 class="text-xl font-bold text-gray-900">Esplora File</h3>
+                    <h3 class="text-xl font-bold text-gray-900" x-text="selectingFolder ? 'Seleziona Cartella' : 'Esplora File'"></h3>
                     <p class="text-sm text-gray-500 mt-1" x-text="browsingConnection?.name"></p>
                 </div>
                 <div class="flex items-center gap-3">
                     <button
+                        x-show="!selectingFolder"
                         @click="importSelected"
                         :disabled="selectedFiles.length === 0 || importing"
                         class="btn-primary text-white rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -212,13 +291,13 @@
                 <div x-show="!loadingFiles" class="space-y-1">
                     <template x-for="item in browserItems" :key="item.id">
                         <div
-                            @click="item.type === 'folder' ? navigateToFolder(item.id, item.name) : (isFileSupported(item) ? toggleFileSelection(item) : null)"
+                            @click="item.type === 'folder' ? navigateToFolder(item.id, item.name) : (!selectingFolder && isFileSupported(item) ? toggleFileSelection(item) : null)"
                             class="flex items-center gap-4 p-3 rounded-xl transition-all"
                             :class="{
                                 'hover:bg-gray-50 cursor-pointer': item.type === 'folder',
-                                'hover:bg-indigo-50 cursor-pointer': item.type === 'file' && isFileSupported(item) && !isFileSelected(item.id),
+                                'hover:bg-indigo-50 cursor-pointer': item.type === 'file' && !selectingFolder && isFileSupported(item) && !isFileSelected(item.id),
                                 'bg-indigo-50 ring-1 ring-indigo-200': isFileSelected(item.id),
-                                'opacity-40 cursor-not-allowed': item.type === 'file' && !isFileSupported(item),
+                                'opacity-40 cursor-not-allowed': item.type === 'file' && (!isFileSupported(item) || selectingFolder),
                             }"
                         >
                             {{-- Checkbox for files --}}
@@ -268,23 +347,18 @@
 
     {{-- Page Header --}}
     <div class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
-        <div class="max-w-7xl mx-auto px-6 py-6">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <a href="{{ route('dashboard') }}" class="p-2 rounded-xl hover:bg-gray-100 transition-all" title="Torna alla Dashboard">
-                        <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                    </a>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">Fonti Documentali</h1>
-                        <p class="text-sm text-gray-500 mt-1">Collega servizi cloud per importare documenti automaticamente</p>
-                    </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Fonti Documentali</h1>
+                    <p class="text-sm text-gray-500 mt-1">Collega servizi cloud per importare documenti automaticamente</p>
                 </div>
                 <button
                     @click="openAddModal"
                     class="btn-primary text-white rounded-xl px-6 py-3 text-sm font-semibold flex items-center gap-2"
                 >
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                    Aggiungi Connessione
+                    Nuova Connessione
                 </button>
             </div>
         </div>
@@ -338,6 +412,17 @@
                             Ultimo sync: <span x-text="formatDate(conn.last_synced_at)"></span>
                         </p>
                         <p x-show="!conn.last_synced_at">Mai sincronizzato</p>
+                        <p x-show="conn.folder_path" class="flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                            <span x-text="getFolderName(conn.folder_path)"></span>
+                        </p>
+                        <p x-show="conn.auto_sync" class="flex items-center gap-1 text-emerald-600">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            <span x-text="'Auto-sync: ' + getSyncFrequencyLabel(conn.sync_frequency)"></span>
+                        </p>
+                        <p x-show="conn.auto_sync && conn.next_sync_at" class="text-gray-500">
+                            Prossimo sync: <span x-text="formatDate(conn.next_sync_at)"></span>
+                        </p>
                     </div>
 
                     {{-- Actions --}}
@@ -361,6 +446,13 @@
                                     Esplora
                                 </button>
                             </template>
+                            <button
+                                @click="openEditModal(conn)"
+                                class="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 transition-all"
+                                title="Modifica connessione"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
                             <button
                                 @click="deleteConnection(conn.id)"
                                 class="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 transition-all"
@@ -409,17 +501,21 @@
 
 <script>
 function sourcesApp() {
-    return {
+    const app = {
         connections: @json($connections),
         showAddModal: false,
+        showEditModal: false,
         showBrowser: false,
         creatingConnection: false,
+        updatingConnection: false,
         loadingFiles: false,
         importing: false,
         browsingConnection: null,
+        editingConnection: null,
         browserItems: [],
         breadcrumbs: [],
         selectedFiles: [],
+        selectingFolder: false,
         toast: { show: false, message: '', type: 'error' },
         confirmModal: {
             show: false, title: '', message: '', resolve: null,
@@ -432,6 +528,9 @@ function sourcesApp() {
             client_id: '',
             client_secret: '',
             metadata: { tenant_id: '', site_id: '' },
+            folder_path: '',
+            auto_sync: false,
+            sync_frequency: '',
         },
 
         providers: [
@@ -468,8 +567,26 @@ function sourcesApp() {
                 client_id: '',
                 client_secret: '',
                 metadata: { tenant_id: '', site_id: '' },
+                folder_path: '',
+                auto_sync: false,
+                sync_frequency: '',
             };
             this.showAddModal = true;
+        },
+
+        openEditModal(conn) {
+            this.editingConnection = conn;
+            this.newConnection = {
+                name: conn.name,
+                provider: conn.provider,
+                client_id: '', // Leave empty - encrypted values are not returned
+                client_secret: '', // Leave empty - encrypted values are not returned
+                metadata: conn.metadata || { tenant_id: '', site_id: '' },
+                folder_path: conn.folder_path || '',
+                auto_sync: conn.auto_sync || false,
+                sync_frequency: conn.sync_frequency || '',
+            };
+            this.showEditModal = true;
         },
 
         async createConnection() {
@@ -480,6 +597,9 @@ function sourcesApp() {
                     provider: this.newConnection.provider,
                     client_id: this.newConnection.client_id,
                     client_secret: this.newConnection.client_secret,
+                    folder_path: this.newConnection.folder_path,
+                    auto_sync: this.newConnection.auto_sync,
+                    sync_frequency: this.newConnection.auto_sync ? this.newConnection.sync_frequency : null,
                 };
                 if (this.newConnection.provider === 'sharepoint') {
                     body.metadata = {
@@ -509,6 +629,58 @@ function sourcesApp() {
             } finally {
                 this.creatingConnection = false;
             }
+        },
+
+        async updateConnection() {
+            this.updatingConnection = true;
+            try {
+                const body = {
+                    name: this.newConnection.name,
+                    client_id: this.newConnection.client_id,
+                    client_secret: this.newConnection.client_secret,
+                    folder_path: this.newConnection.folder_path,
+                    auto_sync: this.newConnection.auto_sync,
+                    sync_frequency: this.newConnection.auto_sync ? this.newConnection.sync_frequency : null,
+                };
+                if (this.newConnection.provider === 'sharepoint') {
+                    body.metadata = {
+                        tenant_id: this.newConnection.metadata.tenant_id,
+                        site_id: this.newConnection.metadata.site_id,
+                    };
+                }
+
+                const res = await fetch(`/sources/${this.editingConnection.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Errore nell\'aggiornamento');
+
+                // Update connection in list
+                const idx = this.connections.findIndex(c => c.id === this.editingConnection.id);
+                if (idx >= 0) {
+                    this.connections[idx] = data.connection;
+                }
+
+                this.showEditModal = false;
+                this.editingConnection = null;
+                this.showToast('Connessione aggiornata con successo!', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            } finally {
+                this.updatingConnection = false;
+            }
+        },
+
+        openFolderSelector() {
+            this.selectingFolder = true;
+            this.openBrowser(this.editingConnection);
         },
 
         async startAuth(conn) {
@@ -567,6 +739,19 @@ function sourcesApp() {
         },
 
         navigateToFolder(folderId, folderName) {
+            // If selecting folder for edit modal
+            if (this.selectingFolder) {
+                // Save both ID and name
+                this.newConnection.folder_path = {
+                    id: folderId,
+                    name: folderName || 'Root'
+                };
+                this.showToast('Cartella selezionata: ' + (folderName || 'Root'), 'success');
+                this.closeBrowser();
+                this.selectingFolder = false;
+                return;
+            }
+
             if (folderId === '') {
                 this.breadcrumbs = [];
             } else {
@@ -736,7 +921,32 @@ function sourcesApp() {
 
             return false;
         },
+
+        getSyncFrequencyLabel(frequency) {
+            const map = {
+                hourly: 'Ogni ora',
+                every_3_hours: 'Ogni 3 ore',
+                every_6_hours: 'Ogni 6 ore',
+                twice_daily: '2x/giorno',
+                daily: '1x/giorno'
+            };
+            return map[frequency] || frequency;
+        },
+
+        getFolderName(folderPath) {
+            if (!folderPath) return 'Root';
+
+            // Support both old format (string) and new format (object)
+            if (typeof folderPath === 'string') {
+                return folderPath; // Old format, just show the ID
+            }
+
+            // New format: { id: '...', name: '...' }
+            return folderPath.name || folderPath.id || 'Root';
+        },
     };
+
+    return app;
 }
 </script>
 @endsection

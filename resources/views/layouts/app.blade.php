@@ -102,25 +102,64 @@
     </style>
 </head>
 <body class="h-full font-sans antialiased bg-gradient-to-br from-slate-50 via-white to-purple-50">
-    @yield('content')
+    {{-- Top Navigation Bar --}}
+    <nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-gray-200/50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex items-center justify-between h-16">
+                {{-- Logo & Brand --}}
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-gray-900 leading-none">RAG Document</h1>
+                        <p class="text-xs text-gray-500">AI Assistant</p>
+                    </div>
+                </div>
 
-    @hasSection('hide-nav')
-    @else
-    {{-- Floating Navigation --}}
-    <nav class="fixed bottom-6 left-6 z-40 flex items-center gap-2 glass rounded-2xl shadow-lg border border-gray-200/50 px-4 py-2">
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('dashboard') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-            Chat
-        </a>
-        <a href="{{ route('documents.index') }}" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('documents.index') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Documenti
-        </a>
-        <a href="{{ route('sources.index') }}" class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('sources.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-            Fonti
-        </a>
+                {{-- Navigation Links --}}
+                <div class="flex items-center gap-1">
+                    <a href="{{ route('dashboard') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('dashboard') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        <span class="hidden md:inline">Chat</span>
+                    </a>
+                    <a href="{{ route('documents.index') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('documents.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span class="hidden md:inline">Documenti</span>
+                    </a>
+                    <a href="{{ route('sources.index') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('sources.*') && !request()->routeIs('sync-logs.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                        </svg>
+                        <span class="hidden md:inline">Fonti</span>
+                    </a>
+                    <a href="{{ route('sync-logs.index') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('sync-logs.*') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        <span class="hidden md:inline">Log Sync</span>
+                    </a>
+                </div>
+
+                {{-- Action Buttons (only if there are actions) --}}
+                @hasSection('topbar-actions')
+                    <div class="flex items-center gap-2">
+                        @yield('topbar-actions')
+                    </div>
+                @endif
+            </div>
+        </div>
     </nav>
-    @endif
+
+    {{-- Main Content with top padding --}}
+    <div class="pt-16">
+        @yield('content')
+    </div>
 </body>
 </html>

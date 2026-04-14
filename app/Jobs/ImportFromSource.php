@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\SourceConnection;
+use App\Models\SyncLog;
 use App\Services\Sources\SourceSyncService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,18 +26,39 @@ class ImportFromSource implements ShouldQueue
 
     public function handle(SourceSyncService $syncService): void
     {
+        // Create sync log
+        $syncLog = SyncLog::create([
+            'source_connection_id' => $this->sourceConnection->id,
+            'type' => 'import',
+            'status' => 'running',
+            'started_at' => now(),
+            'metadata' => [
+                'file_ids' => $this->fileIds,
+                'user_triggered' => true,
+            ],
+        ]);
+
         Log::info("Starting import from source", [
             'connection_id' => $this->sourceConnection->id,
             'provider' => $this->sourceConnection->provider,
             'file_count' => count($this->fileIds),
+            'sync_log_id' => $syncLog->id,
         ]);
 
-        $imported = $syncService->importFiles($this->sourceConnection, $this->fileIds);
+        try {
+            $imported = $syncService->importFiles($this->sourceConnection, $this->fileIds, $syncLog);
 
-        Log::info("Import from source completed", [
-            'connection_id' => $this->sourceConnection->id,
-            'imported_count' => count($imported),
-        ]);
+            $syncLog->markAsCompleted();
+
+            Log::info("Import from source completed", [
+                'connection_id' => $this->sourceConnection->id,
+                'imported_count' => count($imported),
+                'sync_log_id' => $syncLog->id,
+            ]);
+        } catch (\Throwable $e) {
+            $syncLog->markAsFailed($e->getMessage());
+            throw $e;
+        }
     }
 
     public function failed(?\Throwable $exception): void

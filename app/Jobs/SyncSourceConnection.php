@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\SourceConnection;
+use App\Models\SyncLog;
 use App\Services\Sources\SourceSyncService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,23 +26,46 @@ class SyncSourceConnection implements ShouldQueue
 
     public function handle(SourceSyncService $syncService): void
     {
-        $syncType = $this->fullSync ? 'full sync' : 'sync';
+        $syncType = $this->fullSync ? 'full_sync' : 'sync';
+        $syncTypeLabel = $this->fullSync ? 'full sync' : 'sync';
 
-        Log::info("Starting {$syncType} for source connection", [
+        // Create sync log
+        $syncLog = SyncLog::create([
+            'source_connection_id' => $this->sourceConnection->id,
+            'type' => $syncType,
+            'status' => 'running',
+            'started_at' => now(),
+            'metadata' => [
+                'full_sync' => $this->fullSync,
+                'folder_path' => $this->sourceConnection->folder_path,
+                'auto_triggered' => $this->sourceConnection->auto_sync,
+            ],
+        ]);
+
+        Log::info("Starting {$syncTypeLabel} for source connection", [
             'connection_id' => $this->sourceConnection->id,
             'provider' => $this->sourceConnection->provider,
             'full_sync' => $this->fullSync,
+            'sync_log_id' => $syncLog->id,
         ]);
 
-        $result = $this->fullSync
-            ? $syncService->fullSyncConnection($this->sourceConnection)
-            : $syncService->syncConnection($this->sourceConnection);
+        try {
+            $result = $this->fullSync
+                ? $syncService->fullSyncConnection($this->sourceConnection, $syncLog)
+                : $syncService->syncConnection($this->sourceConnection, $syncLog);
 
-        Log::info("Sync completed for source connection", [
-            'connection_id' => $this->sourceConnection->id,
-            'sync_type' => $syncType,
-            'result_count' => count($result),
-        ]);
+            $syncLog->markAsCompleted();
+
+            Log::info("Sync completed for source connection", [
+                'connection_id' => $this->sourceConnection->id,
+                'sync_type' => $syncTypeLabel,
+                'result_count' => count($result),
+                'sync_log_id' => $syncLog->id,
+            ]);
+        } catch (\Throwable $e) {
+            $syncLog->markAsFailed($e->getMessage());
+            throw $e;
+        }
     }
 
     public function failed(?\Throwable $exception): void
