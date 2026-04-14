@@ -7,8 +7,10 @@ use App\Models\Document;
 use App\Models\SourceConnection;
 use App\Services\Sources\Contracts\SourceProviderInterface;
 use App\Services\Sources\DTOs\DownloadedFile;
+use App\Services\Sources\DTOs\FileMetadata;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use ZipArchive;
 
 class SourceSyncService
 {
@@ -85,6 +87,15 @@ class SourceSyncService
         foreach ($documents as $document) {
             try {
                 if (!$document->source_file_id) {
+                    continue;
+                }
+
+                // Skip unsupported file types
+                if (!$document->mime_type || !\App\Services\DocumentProcessor::isSupportedMimeType($document->mime_type)) {
+                    Log::debug("Skipping unsupported document during sync", [
+                        'document_id' => $document->id,
+                        'mime_type' => $document->mime_type,
+                    ]);
                     continue;
                 }
 
@@ -171,18 +182,21 @@ class SourceSyncService
             // Also filter by supported mime types
             $newFileIds = [];
             $skippedUnsupported = 0;
+
             foreach ($items as $item) {
-                if ($item->type !== 'file' || in_array($item->id, $importedFileIds)) {
+                // Skip folders
+                if ($item->type === 'folder') {
+                    continue;
+                }
+
+                // Skip already imported
+                if (in_array($item->id, $importedFileIds)) {
                     continue;
                 }
 
                 // Check if mime type is supported
                 if (!\App\Services\DocumentProcessor::isSupportedMimeType($item->mimeType)) {
                     $skippedUnsupported++;
-                    Log::debug("Skipping unsupported file type during full sync", [
-                        'name' => $item->name,
-                        'mime_type' => $item->mimeType,
-                    ]);
                     continue;
                 }
 
@@ -237,6 +251,23 @@ class SourceSyncService
 
         // Download file
         $downloaded = $provider->downloadFile($fileId);
+
+        // Check if mime type is supported
+        if (!\App\Services\DocumentProcessor::isSupportedMimeType($downloaded->mimeType)) {
+            Log::info("Skipping unsupported file type during import", [
+                'file_id' => $fileId,
+                'name' => $metadata->name,
+                'mime_type' => $downloaded->mimeType,
+            ]);
+            $this->cleanupDownload($downloaded);
+            return null;
+        }
+
+        // Handle ZIP files specially - extract and import contents
+        if (in_array($downloaded->mimeType, ['application/zip', 'application/x-zip-compressed'])) {
+            $this->cleanupDownload($downloaded);
+            return $this->importZipFile($connection, $fileId, $downloaded, $metadata);
+        }
 
         // Cross-source dedup: check if same content already exists
         if (!$existing && $downloaded->contentHash) {
@@ -307,5 +338,125 @@ class SourceSyncService
         if (Storage::disk('local')->exists($downloaded->localPath)) {
             Storage::disk('local')->delete($downloaded->localPath);
         }
+    }
+
+    protected function importZipFile(
+        SourceConnection $connection,
+        string $fileId,
+        DownloadedFile $downloaded,
+        FileMetadata $metadata
+    ): ?Document {
+        $zip = new ZipArchive;
+        $zipPath = Storage::disk('local')->path($downloaded->localPath);
+
+        if ($zip->open($zipPath) !== true) {
+            Log::error("Failed to open ZIP file", [
+                'file_id' => $fileId,
+                'name' => $metadata->name,
+            ]);
+            return null;
+        }
+
+        $tempDir = storage_path('app/temp_zip_' . uniqid());
+        mkdir($tempDir, 0755, true);
+
+        $zip->extractTo($tempDir);
+        $zip->close();
+
+        $importedDocuments = [];
+        $supportedExtensions = ['pdf', 'txt', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'doc', 'docx'];
+        $extensionMimeMap = [
+            'pdf'  => 'application/pdf',
+            'txt'  => 'text/plain',
+            'csv'  => 'text/csv',
+            'xls'  => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'doc'  => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+        ];
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tempDir, \RecursiveDirectoryIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $extractedFile) {
+                if (!$extractedFile->isFile()) {
+                    continue;
+                }
+
+                // Skip macOS resource fork files
+                if (str_contains($extractedFile->getPathname(), '__MACOSX')) {
+                    continue;
+                }
+
+                $extension = strtolower($extractedFile->getExtension());
+                if (!in_array($extension, $supportedExtensions)) {
+                    continue;
+                }
+
+                $originalName = $extractedFile->getFilename();
+                $mimeType = $extensionMimeMap[$extension] ?? mime_content_type($extractedFile->getRealPath());
+                $storedPath = Storage::disk('local')->putFile('documents', new \Illuminate\Http\File($extractedFile->getRealPath()));
+                $contentHash = hash_file('sha256', $extractedFile->getRealPath());
+
+                // Check for duplicates
+                $duplicate = Document::where('content_hash', $contentHash)->first();
+                if ($duplicate) {
+                    Storage::disk('local')->delete($storedPath);
+                    Log::info("Skipping duplicate file from ZIP", [
+                        'name' => $originalName,
+                        'duplicate_of' => $duplicate->id,
+                    ]);
+                    continue;
+                }
+
+                $document = Document::create([
+                    'title' => pathinfo($originalName, PATHINFO_FILENAME),
+                    'original_filename' => $originalName,
+                    'mime_type' => $mimeType,
+                    'file_path' => $storedPath,
+                    'file_size' => $extractedFile->getSize(),
+                    'status' => 'pending',
+                    'content_hash' => $contentHash,
+                    'source_type' => $connection->provider,
+                    'source_connection_id' => $connection->id,
+                ]);
+
+                ProcessDocument::dispatch($document);
+                $importedDocuments[] = $document;
+            }
+        } finally {
+            // Clean up temp directory
+            $this->deleteDirectory($tempDir);
+        }
+
+        Log::info("Extracted and imported files from ZIP", [
+            'zip_name' => $metadata->name,
+            'files_imported' => count($importedDocuments),
+        ]);
+
+        // Return the first imported document (or null if none)
+        return $importedDocuments[0] ?? null;
+    }
+
+    protected function deleteDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($items as $item) {
+            $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
+        }
+
+        rmdir($dir);
     }
 }

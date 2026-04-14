@@ -727,6 +727,8 @@ function sourcesApp() {
                 'application/vnd.ms-excel',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'text/csv',
+                'application/zip',
+                'application/x-zip-compressed',
             ];
 
             if (supported.includes(item.mimeType)) return true;

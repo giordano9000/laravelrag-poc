@@ -11,7 +11,7 @@ use thiagoalessio\TesseractOCR\TesseractOCR;
 class DocumentProcessor
 {
     /**
-     * Check if a mime type is supported for text extraction.
+     * Check if a mime type is supported for import/processing.
      */
     public static function isSupportedMimeType(?string $mimeType): bool
     {
@@ -30,6 +30,9 @@ class DocumentProcessor
             'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'text/csv',
+            // Archive (will be extracted)
+            'application/zip',
+            'application/x-zip-compressed',
         ];
 
         // Check exact match

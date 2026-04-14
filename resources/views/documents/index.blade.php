@@ -115,11 +115,21 @@
     {{-- Table --}}
     <div class="max-w-7xl mx-auto">
         <div class="glass rounded-2xl border border-gray-200/50 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <div class="overflow-hidden">
+                <table class="w-full table-fixed">
+                    <colgroup>
+                        <col style="width: 25%;">
+                        <col style="width: 8%;">
+                        <col style="width: 10%;">
+                        <col style="width: 12%;">
+                        <col style="width: 8%;">
+                        <col style="width: 12%;">
+                        <col style="width: 13%;">
+                        <col style="width: 12%;">
+                    </colgroup>
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center gap-2 cursor-pointer" @click="sortBy('title')">
                                     Documento
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -127,35 +137,35 @@
                                     </svg>
                                 </div>
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 Tipo
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center gap-2 cursor-pointer" @click="sortBy('file_size')">
-                                    Dimensione
+                                    Dim.
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                                     </svg>
                                 </div>
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 Stato
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                Chunks
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                Chunk
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 Fonte
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center gap-2 cursor-pointer" @click="sortBy('updated_at')">
-                                    Ultima modifica
+                                    Modifica
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                                     </svg>
                                 </div>
                             </th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 Azioni
                             </th>
                         </tr>
@@ -164,37 +174,37 @@
                         <template x-for="doc in filteredDocuments" :key="doc.id">
                             <tr class="hover:bg-gray-50 transition-colors">
                                 {{-- Document Name --}}
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
+                                <td class="px-4 py-4">
+                                    <div class="flex items-center gap-2">
                                         <div
-                                            class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                            class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                                             :class="getFileIconClass(doc.mime_type)"
                                         >
-                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
                                         </div>
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-medium text-gray-900 truncate" x-text="doc.title"></p>
-                                            <p class="text-xs text-gray-500 truncate" x-text="doc.original_filename"></p>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-medium text-gray-900 truncate" :title="doc.title" x-text="doc.title"></p>
+                                            <p class="text-xs text-gray-500 truncate" :title="doc.original_filename" x-text="doc.original_filename"></p>
                                         </div>
                                     </div>
                                 </td>
 
                                 {{-- Type --}}
-                                <td class="px-6 py-4">
-                                    <span class="text-xs text-gray-600" x-text="getFileType(doc.mime_type)"></span>
+                                <td class="px-3 py-4">
+                                    <span class="text-xs text-gray-600 truncate block" x-text="getFileType(doc.mime_type)"></span>
                                 </td>
 
                                 {{-- Size --}}
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-gray-600" x-text="formatSize(doc.file_size)"></span>
+                                <td class="px-3 py-4">
+                                    <span class="text-xs text-gray-600 truncate block" x-text="formatSize(doc.file_size)"></span>
                                 </td>
 
                                 {{-- Status --}}
-                                <td class="px-6 py-4">
+                                <td class="px-3 py-4">
                                     <span
-                                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
                                         :class="getStatusClass(doc.status)"
                                     >
                                         <span class="w-1.5 h-1.5 rounded-full" :class="getStatusDotClass(doc.status)"></span>
@@ -203,30 +213,28 @@
                                 </td>
 
                                 {{-- Chunks --}}
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-gray-600" x-text="doc.chunk_count"></span>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="text-xs text-gray-600" x-text="doc.chunk_count"></span>
                                 </td>
 
                                 {{-- Source --}}
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-2">
-                                        <span
-                                            class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
-                                            :class="getSourceClass(doc.source_type)"
-                                        >
-                                            <span x-text="getSourceLabel(doc.source_type)"></span>
-                                        </span>
-                                        <span x-show="doc.source_name" class="text-xs text-gray-500" x-text="doc.source_name"></span>
-                                    </div>
+                                <td class="px-3 py-4">
+                                    <span
+                                        class="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap"
+                                        :class="getSourceClass(doc.source_type)"
+                                        :title="doc.source_name || getSourceLabel(doc.source_type)"
+                                    >
+                                        <span x-text="getSourceLabel(doc.source_type)"></span>
+                                    </span>
                                 </td>
 
                                 {{-- Date --}}
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-gray-600" x-text="formatDate(doc.updated_at)"></span>
+                                <td class="px-3 py-4">
+                                    <span class="text-xs text-gray-600 truncate block" x-text="formatDateShort(doc.updated_at)"></span>
                                 </td>
 
                                 {{-- Actions --}}
-                                <td class="px-6 py-4">
+                                <td class="px-3 py-4">
                                     <div class="flex items-center justify-end gap-2">
                                         <button
                                             @click="viewDocument(doc)"
@@ -551,7 +559,7 @@ function documentsManager() {
         getSourceLabel(source) {
             const map = {
                 upload: 'Upload',
-                google_drive: 'Google Drive',
+                google_drive: 'GDrive',
                 onedrive: 'OneDrive',
                 sharepoint: 'SharePoint',
             };
@@ -574,6 +582,26 @@ function documentsManager() {
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
+            });
+        },
+
+        formatDateShort(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            // Se è oggi o ieri
+            if (diffDays === 0) return 'Oggi';
+            if (diffDays === 1) return 'Ieri';
+            if (diffDays < 7) return diffDays + 'g fa';
+
+            // Altrimenti formato compatto
+            return date.toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit'
             });
         },
 
