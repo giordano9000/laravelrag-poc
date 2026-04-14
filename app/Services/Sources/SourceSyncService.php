@@ -5,6 +5,7 @@ namespace App\Services\Sources;
 use App\Jobs\ProcessDocument;
 use App\Models\Document;
 use App\Models\SourceConnection;
+use App\Services\MimeTypeService;
 use App\Services\Sources\Contracts\SourceProviderInterface;
 use App\Services\Sources\DTOs\DownloadedFile;
 use App\Services\Sources\DTOs\FileMetadata;
@@ -91,7 +92,7 @@ class SourceSyncService
                 }
 
                 // Skip unsupported file types
-                if (!$document->mime_type || !\App\Services\DocumentProcessor::isSupportedMimeType($document->mime_type)) {
+                if (!MimeTypeService::isSupported($document->mime_type)) {
                     Log::debug("Skipping unsupported document during sync", [
                         'document_id' => $document->id,
                         'mime_type' => $document->mime_type,
@@ -195,7 +196,7 @@ class SourceSyncService
                 }
 
                 // Check if mime type is supported
-                if (!\App\Services\DocumentProcessor::isSupportedMimeType($item->mimeType)) {
+                if (!MimeTypeService::isSupported($item->mimeType)) {
                     $skippedUnsupported++;
                     continue;
                 }
@@ -253,7 +254,7 @@ class SourceSyncService
         $downloaded = $provider->downloadFile($fileId);
 
         // Check if mime type is supported
-        if (!\App\Services\DocumentProcessor::isSupportedMimeType($downloaded->mimeType)) {
+        if (!MimeTypeService::isSupported($downloaded->mimeType)) {
             Log::info("Skipping unsupported file type during import", [
                 'file_id' => $fileId,
                 'name' => $metadata->name,
@@ -264,7 +265,7 @@ class SourceSyncService
         }
 
         // Handle ZIP files specially - extract and import contents
-        if (in_array($downloaded->mimeType, ['application/zip', 'application/x-zip-compressed'])) {
+        if (MimeTypeService::isZip($downloaded->mimeType)) {
             $this->cleanupDownload($downloaded);
             return $this->importZipFile($connection, $fileId, $downloaded, $metadata);
         }
@@ -364,18 +365,8 @@ class SourceSyncService
         $zip->close();
 
         $importedDocuments = [];
-        $supportedExtensions = ['pdf', 'txt', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'doc', 'docx'];
-        $extensionMimeMap = [
-            'pdf'  => 'application/pdf',
-            'txt'  => 'text/plain',
-            'csv'  => 'text/csv',
-            'xls'  => 'application/vnd.ms-excel',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'doc'  => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-        ];
+        $supportedExtensions = MimeTypeService::getSupportedExtensions();
+        $extensionMimeMap = MimeTypeService::getExtensionMimeMap();
 
         try {
             $iterator = new \RecursiveIteratorIterator(

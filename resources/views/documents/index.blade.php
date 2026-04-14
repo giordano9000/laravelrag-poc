@@ -1,15 +1,23 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="min-h-screen p-8 pb-24" x-data="documentsManager()">
-    {{-- Header --}}
-    <div class="max-w-7xl mx-auto mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold gradient-text mb-2">Gestione Documenti</h1>
-                <p class="text-gray-600">Visualizza e gestisci tutti i documenti importati</p>
+<div class="min-h-screen pb-24" x-data="documentsManager()">
+    {{-- Page Header --}}
+    <div class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm mb-8">
+        <div class="max-w-7xl mx-auto px-6 py-6">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-4">
+                    <a href="{{ route('dashboard') }}" class="p-2 rounded-xl hover:bg-gray-100 transition-all" title="Torna alla Dashboard">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    </a>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Gestione Documenti</h1>
+                        <p class="text-sm text-gray-500 mt-1">Visualizza e gestisci tutti i documenti importati</p>
+                    </div>
+                </div>
             </div>
 
+            {{-- Filters --}}
             <div class="flex items-center gap-3">
                 {{-- Search --}}
                 <div class="relative">
@@ -53,6 +61,7 @@
         </div>
     </div>
 
+    <div class="px-6">
     {{-- Stats Cards --}}
     <div class="max-w-7xl mx-auto mb-6 grid grid-cols-4 gap-4">
         <div class="glass rounded-2xl p-4 border border-gray-200/50">
@@ -112,23 +121,82 @@
         </div>
     </div>
 
+    {{-- Bulk Actions Bar --}}
+    <div x-show="selectedDocuments.length > 0" x-cloak class="max-w-7xl mx-auto mb-4">
+        <div class="glass rounded-2xl border border-gray-200/50 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">
+                        <span x-text="selectedDocuments.length"></span>
+                        <span x-text="selectedDocuments.length === 1 ? 'documento selezionato' : 'documenti selezionati'"></span>
+                    </p>
+                    <p class="text-xs text-gray-500">Seleziona azioni da eseguire</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button
+                    @click="downloadSelected"
+                    class="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-all"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                </button>
+                <button
+                    @click="deleteSelected"
+                    class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-xl hover:bg-red-100 transition-all"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Elimina
+                </button>
+                <button
+                    @click="clearSelection"
+                    class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Annulla
+                </button>
+            </div>
+        </div>
+    </div>
+
     {{-- Table --}}
     <div class="max-w-7xl mx-auto">
         <div class="glass rounded-2xl border border-gray-200/50 overflow-hidden">
             <div class="overflow-hidden">
                 <table class="w-full table-fixed">
                     <colgroup>
-                        <col style="width: 25%;">
+                        <col style="width: 5%;">
+                        <col style="width: 22%;">
                         <col style="width: 8%;">
                         <col style="width: 10%;">
                         <col style="width: 12%;">
                         <col style="width: 8%;">
                         <col style="width: 12%;">
-                        <col style="width: 13%;">
+                        <col style="width: 11%;">
                         <col style="width: 12%;">
                     </colgroup>
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th class="px-4 py-4 text-center">
+                                <input
+                                    type="checkbox"
+                                    @change="toggleSelectAll"
+                                    :checked="selectedDocuments.length === filteredDocuments.length && filteredDocuments.length > 0"
+                                    class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                >
+                            </th>
                             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center gap-2 cursor-pointer" @click="sortBy('title')">
                                     Documento
@@ -172,7 +240,17 @@
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <template x-for="doc in filteredDocuments" :key="doc.id">
-                            <tr class="hover:bg-gray-50 transition-colors">
+                            <tr class="hover:bg-gray-50 transition-colors" :class="{ 'bg-indigo-50/30': isDocumentSelected(doc.id) }">
+                                {{-- Checkbox --}}
+                                <td class="px-4 py-4 text-center">
+                                    <input
+                                        type="checkbox"
+                                        :checked="isDocumentSelected(doc.id)"
+                                        @change="toggleDocumentSelection(doc)"
+                                        class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    >
+                                </td>
+
                                 {{-- Document Name --}}
                                 <td class="px-4 py-4">
                                     <div class="flex items-center gap-2">
@@ -291,6 +369,47 @@
         </div>
     </div>
 
+    {{-- Confirm Delete Modal --}}
+    <div x-show="confirmModal.show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="confirmModal.cancel()"></div>
+        <div
+            x-show="confirmModal.show"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 scale-90"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-90"
+            class="relative glass rounded-2xl border border-gray-200/50 w-full max-w-md p-6 space-y-6"
+        >
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                    <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900" x-text="confirmModal.title"></h3>
+                    <p class="text-gray-500 mt-2" x-text="confirmModal.message"></p>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button
+                    @click="confirmModal.cancel()"
+                    class="flex-1 px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all"
+                >
+                    Annulla
+                </button>
+                <button
+                    @click="confirmModal.confirm()"
+                    class="flex-1 px-6 py-3 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-all hover:shadow-lg hover:shadow-red-500/25"
+                >
+                    Elimina
+                </button>
+            </div>
+        </div>
+    </div>
+
     {{-- Document Details Modal --}}
     <div x-show="showDetails" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showDetails = false"></div>
@@ -392,6 +511,7 @@
             <p class="text-sm font-medium text-gray-900" x-text="toast.message"></p>
         </div>
     </div>
+    </div>
 </div>
 
 <script>
@@ -399,6 +519,7 @@ function documentsManager() {
     return {
         allDocuments: @json($documents),
         filteredDocuments: [],
+        selectedDocuments: [],
         searchQuery: '',
         statusFilter: '',
         sourceFilter: '',
@@ -407,6 +528,11 @@ function documentsManager() {
         showDetails: false,
         selectedDocument: null,
         toast: { show: false, message: '', type: 'success' },
+        confirmModal: {
+            show: false, title: '', message: '', resolve: null,
+            confirm() { this.show = false; if (this.resolve) this.resolve(true); },
+            cancel() { this.show = false; if (this.resolve) this.resolve(false); },
+        },
 
         init() {
             this.filterDocuments();
@@ -478,7 +604,11 @@ function documentsManager() {
         },
 
         async deleteDocument(doc) {
-            if (!confirm(`Sei sicuro di voler eliminare "${doc.title}"?`)) return;
+            const ok = await this.askConfirm(
+                'Elimina documento',
+                `Sei sicuro di voler eliminare "${doc.title}"? Questa azione non può essere annullata.`
+            );
+            if (!ok) return;
 
             try {
                 const res = await fetch(`/documents/${doc.id}`, {
@@ -496,6 +626,102 @@ function documentsManager() {
                 this.showToast('Documento eliminato con successo', 'success');
             } catch (e) {
                 this.showToast(e.message, 'error');
+            }
+        },
+
+        askConfirm(title, message) {
+            return new Promise(resolve => {
+                this.confirmModal = {
+                    show: true, title, message, resolve,
+                    confirm() { this.show = false; resolve(true); },
+                    cancel() { this.show = false; resolve(false); },
+                };
+            });
+        },
+
+        // Bulk selection methods
+        toggleSelectAll() {
+            if (this.selectedDocuments.length === this.filteredDocuments.length) {
+                this.selectedDocuments = [];
+            } else {
+                this.selectedDocuments = [...this.filteredDocuments];
+            }
+        },
+
+        toggleDocumentSelection(doc) {
+            const index = this.selectedDocuments.findIndex(d => d.id === doc.id);
+            if (index >= 0) {
+                this.selectedDocuments.splice(index, 1);
+            } else {
+                this.selectedDocuments.push(doc);
+            }
+        },
+
+        isDocumentSelected(docId) {
+            return this.selectedDocuments.some(d => d.id === docId);
+        },
+
+        clearSelection() {
+            this.selectedDocuments = [];
+        },
+
+        async downloadSelected() {
+            if (this.selectedDocuments.length === 0) return;
+
+            for (const doc of this.selectedDocuments) {
+                const link = document.createElement('a');
+                link.href = `/documents/${doc.id}/download`;
+                link.download = doc.original_filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Small delay between downloads to avoid browser blocking
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            this.showToast(`${this.selectedDocuments.length} ${this.selectedDocuments.length === 1 ? 'documento scaricato' : 'documenti scaricati'}`, 'success');
+        },
+
+        async deleteSelected() {
+            if (this.selectedDocuments.length === 0) return;
+
+            const count = this.selectedDocuments.length;
+            const ok = await this.askConfirm(
+                'Elimina documenti',
+                `Sei sicuro di voler eliminare ${count} ${count === 1 ? 'documento' : 'documenti'}? Questa azione non può essere annullata.`
+            );
+            if (!ok) return;
+
+            let deletedCount = 0;
+            const errors = [];
+
+            for (const doc of this.selectedDocuments) {
+                try {
+                    const res = await fetch(`/documents/${doc.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                        },
+                    });
+
+                    if (!res.ok) throw new Error(`Errore eliminazione ${doc.title}`);
+
+                    this.allDocuments = this.allDocuments.filter(d => d.id !== doc.id);
+                    deletedCount++;
+                } catch (e) {
+                    errors.push(doc.title);
+                }
+            }
+
+            this.selectedDocuments = [];
+            this.filterDocuments();
+
+            if (errors.length === 0) {
+                this.showToast(`${deletedCount} ${deletedCount === 1 ? 'documento eliminato' : 'documenti eliminati'} con successo`, 'success');
+            } else {
+                this.showToast(`${deletedCount} eliminati, ${errors.length} errori`, 'error');
             }
         },
 

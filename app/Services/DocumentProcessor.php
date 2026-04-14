@@ -12,40 +12,11 @@ class DocumentProcessor
 {
     /**
      * Check if a mime type is supported for import/processing.
+     * @deprecated Use MimeTypeService::isSupported() instead
      */
     public static function isSupportedMimeType(?string $mimeType): bool
     {
-        if (!$mimeType) {
-            return false;
-        }
-
-        // Supported mime types
-        $supported = [
-            'application/pdf',
-            'text/plain',
-            // Word
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            // Spreadsheet
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/csv',
-            // Archive (will be extracted)
-            'application/zip',
-            'application/x-zip-compressed',
-        ];
-
-        // Check exact match
-        if (in_array($mimeType, $supported)) {
-            return true;
-        }
-
-        // Check image/* prefix
-        if (str_starts_with($mimeType, 'image/')) {
-            return true;
-        }
-
-        return false;
+        return MimeTypeService::isSupported($mimeType);
     }
 
     public function extractText(string $filePath, string $mimeType): ExtractedContent
