@@ -345,7 +345,7 @@ class SourceSyncService
         SourceConnection $connection,
         string $fileId,
         DownloadedFile $downloaded,
-        FileMetadata $metadata
+        SourceItem $metadata
     ): ?Document {
         $zip = new ZipArchive;
         $zipPath = Storage::disk('local')->path($downloaded->localPath);
