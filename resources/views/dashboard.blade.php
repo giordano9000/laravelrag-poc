@@ -241,7 +241,11 @@
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
                                     <span x-text="doc.source_type === 'google_drive' ? 'GDrive' : doc.source_type === 'onedrive' ? 'OneDrive' : doc.source_type === 'sharepoint' ? 'SharePoint' : doc.source_type === 'dropbox' ? 'Dropbox' : ''"></span>
                                 </span>
-                                <span class="text-xs text-gray-400" x-text="formatSize(doc.file_size)"></span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                <span x-text="formatSize(doc.file_size)"></span>
+                                <span>•</span>
+                                <span x-text="formatDate(doc.updated_at)"></span>
                             </div>
                         </div>
 
@@ -303,8 +307,8 @@
         <div class="px-8 py-6 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-900">Chat con i tuoi documenti</h2>
-                    <p class="text-gray-500 mt-1">Fai domande e ottieni risposte basate sui documenti caricati</p>
+                    <h2 class="text-2xl font-bold text-gray-900">Chat con il tuo archivio documentale</h2>
+                    <p class="text-gray-500 mt-1">Fai domande e ottieni risposte basate sui tuoi documenti</p>
                 </div>
                 <div class="flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-xl">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -739,6 +743,23 @@ function app() {
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
             return (bytes / 1048576).toFixed(1) + ' MB';
+        },
+
+        formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'ora';
+            if (diffMins < 60) return `${diffMins}m fa`;
+            if (diffHours < 24) return `${diffHours}h fa`;
+            if (diffDays < 7) return `${diffDays}g fa`;
+
+            return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
         },
 
         renderMarkdown(text) {
