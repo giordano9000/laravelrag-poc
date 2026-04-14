@@ -23,24 +23,26 @@ class DocumentController extends Controller
     {
         $documents = Document::with('sourceConnection')
             ->latest()
-            ->get()
-            ->map(function ($doc) {
-                return [
-                    'id' => $doc->id,
-                    'title' => $doc->title,
-                    'original_filename' => $doc->original_filename,
-                    'mime_type' => $doc->mime_type,
-                    'file_size' => $doc->file_size,
-                    'status' => $doc->status,
-                    'chunk_count' => $doc->chunks()->count(),
-                    'source_type' => $doc->source_type,
-                    'source_name' => $doc->sourceConnection?->name,
-                    'created_at' => $doc->created_at,
-                    'updated_at' => $doc->updated_at,
-                ];
-            });
+            ->paginate(50);
 
-        return view('documents.index', compact('documents'));
+        // Transform documents for JSON
+        $documentsArray = $documents->map(function ($doc) {
+            return [
+                'id' => $doc->id,
+                'title' => $doc->title,
+                'original_filename' => $doc->original_filename,
+                'mime_type' => $doc->mime_type,
+                'file_size' => $doc->file_size,
+                'status' => $doc->status,
+                'chunk_count' => $doc->chunks()->count(),
+                'source_type' => $doc->source_type,
+                'source_name' => $doc->sourceConnection?->name,
+                'created_at' => $doc->created_at,
+                'updated_at' => $doc->updated_at,
+            ];
+        })->values()->all();
+
+        return view('documents.index', compact('documents', 'documentsArray'));
     }
 
     public function store(Request $request)

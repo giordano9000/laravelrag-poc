@@ -34,11 +34,25 @@ class SyncLogController extends Controller
         return view('sync-logs.index', compact('syncLogs', 'connections'));
     }
 
-    public function show(SyncLog $syncLog)
+    public function show(Request $request, SyncLog $syncLog)
     {
-        $syncLog->load(['sourceConnection', 'items.document']);
+        $syncLog->load('sourceConnection');
 
-        return view('sync-logs.show', compact('syncLog'));
+        $query = $syncLog->items()->with('document');
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by file name
+        if ($request->filled('search')) {
+            $query->where('file_name', 'like', '%' . $request->search . '%');
+        }
+
+        $items = $query->paginate(50);
+
+        return view('sync-logs.show', compact('syncLog', 'items'));
     }
 
     public function destroy(SyncLog $syncLog)

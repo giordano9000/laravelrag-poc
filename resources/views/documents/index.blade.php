@@ -59,6 +59,15 @@
                     <option value="onedrive">OneDrive</option>
                     <option value="sharepoint">SharePoint</option>
                 </select>
+
+                {{-- Reset button --}}
+                <button
+                    @click="resetFilters"
+                    x-show="searchQuery || statusFilter || sourceFilter"
+                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+                >
+                    Reset
+                </button>
             </div>
         </div>
     </div>
@@ -368,6 +377,13 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- Pagination --}}
+            @if($documents->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200 bg-white">
+                    {{ $documents->links() }}
+                </div>
+            @endif
         </div>
     </div>
 
@@ -519,7 +535,7 @@
 <script>
 function documentsManager() {
     return {
-        allDocuments: @json($documents),
+        allDocuments: @json($documentsArray),
         filteredDocuments: [],
         selectedDocuments: [],
         searchQuery: '',
@@ -665,6 +681,13 @@ function documentsManager() {
 
         clearSelection() {
             this.selectedDocuments = [];
+        },
+
+        resetFilters() {
+            this.searchQuery = '';
+            this.statusFilter = '';
+            this.sourceFilter = '';
+            this.filterDocuments();
         },
 
         async downloadSelected() {

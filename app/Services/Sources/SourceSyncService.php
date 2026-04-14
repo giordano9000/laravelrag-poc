@@ -5,6 +5,8 @@ namespace App\Services\Sources;
 use App\Jobs\ProcessDocument;
 use App\Models\Document;
 use App\Models\SourceConnection;
+use App\Models\SyncLog;
+use App\Models\SyncLogItem;
 use App\Services\MimeTypeService;
 use App\Services\Sources\Contracts\SourceProviderInterface;
 use App\Services\Sources\DTOs\DownloadedFile;
@@ -42,9 +44,10 @@ class SourceSyncService
      *
      * @param SourceConnection $connection
      * @param string[] $fileIds
+     * @param SyncLog|null $syncLog
      * @return Document[]
      */
-    public function importFiles(SourceConnection $connection, array $fileIds): array
+    public function importFiles(SourceConnection $connection, array $fileIds, ?SyncLog $syncLog = null): array
     {
         $provider = SourceProviderFactory::make($connection);
         $this->ensureValidToken($connection, $provider);
@@ -56,7 +59,7 @@ class SourceSyncService
 
         foreach ($fileIds as $fileId) {
             try {
-                $document = $this->importSingleFile($connection, $provider, $fileId);
+                $document = $this->importSingleFile($connection, $provider, $fileId, $syncLog);
                 if ($document) {
                     $imported[] = $document;
                 }
@@ -66,6 +69,11 @@ class SourceSyncService
                     'file_id' => $fileId,
                     'error' => $e->getMessage(),
                 ]);
+
+                // Track failed import in sync log
+                if ($syncLog) {
+                    $this->trackSyncLogItem($syncLog, null, $fileId, 'Unknown', 'failed', $e->getMessage());
+                }
             }
         }
 
@@ -77,7 +85,7 @@ class SourceSyncService
     /**
      * Sync all previously imported files from a connection (only updates modified files).
      */
-    public function syncConnection(SourceConnection $connection): array
+    public function syncConnection(SourceConnection $connection, ?SyncLog $syncLog = null): array
     {
         $provider = SourceProviderFactory::make($connection);
         $this->ensureValidToken($connection, $provider);
@@ -159,14 +167,14 @@ class SourceSyncService
     /**
      * Full sync: updates existing files AND imports new files from root folder.
      */
-    public function fullSyncConnection(SourceConnection $connection): array
+    public function fullSyncConnection(SourceConnection $connection, ?SyncLog $syncLog = null): array
     {
         $provider = SourceProviderFactory::make($connection);
         $this->ensureValidToken($connection, $provider);
         $connection->refresh();
 
         // Step 1: Update existing files
-        $updated = $this->syncConnection($connection);
+        $updated = $this->syncConnection($connection, $syncLog);
 
         // Step 2: Import new files from root folder
         $newFiles = [];
@@ -219,7 +227,7 @@ class SourceSyncService
                     'new_files_count' => count($newFileIds),
                 ]);
 
-                $newFiles = $this->importFiles($connection, $newFileIds);
+                $newFiles = $this->importFiles($connection, $newFileIds, $syncLog);
             }
         } catch (\Throwable $e) {
             Log::error("Failed to scan for new files during full sync", [
@@ -235,6 +243,7 @@ class SourceSyncService
         SourceConnection $connection,
         SourceProviderInterface $provider,
         string $fileId,
+        ?SyncLog $syncLog = null,
     ): ?Document {
         // Check if already imported from this connection with same file_id
         $existing = Document::where('source_connection_id', $connection->id)
@@ -247,6 +256,7 @@ class SourceSyncService
         if ($existing && $existing->source_modified_at && $metadata->modifiedAt) {
             if ($existing->source_modified_at->toIso8601String() === $metadata->modifiedAt) {
                 Log::info("Skipping unchanged file", ['file_id' => $fileId, 'name' => $metadata->name]);
+                $this->trackSyncLogItem($syncLog, $existing, $fileId, $metadata->name, 'skipped', 'no_changes');
                 return null;
             }
         }
@@ -261,13 +271,14 @@ class SourceSyncService
                 'name' => $metadata->name,
                 'mime_type' => $downloaded->mimeType,
             ]);
+            $this->trackSyncLogItem($syncLog, null, $fileId, $metadata->name, 'skipped', 'unsupported_format');
             $this->cleanupDownload($downloaded);
             return null;
         }
 
         // Handle ZIP files specially - extract and import contents
         if (MimeTypeService::isZip($downloaded->mimeType)) {
-            return $this->importZipFile($connection, $fileId, $downloaded, $metadata);
+            return $this->importZipFile($connection, $fileId, $downloaded, $metadata, $syncLog);
         }
 
         // Cross-source dedup: check if same content already exists
@@ -279,6 +290,7 @@ class SourceSyncService
                     'name' => $metadata->name,
                     'duplicate_of' => $duplicate->id,
                 ]);
+                $this->trackSyncLogItem($syncLog, $duplicate, $fileId, $metadata->name, 'skipped', 'duplicate_content');
                 $this->cleanupDownload($downloaded);
                 return null;
             }
@@ -303,6 +315,7 @@ class SourceSyncService
 
             ProcessDocument::dispatch($existing);
             $this->cleanupDownload($downloaded);
+            $this->trackSyncLogItem($syncLog, $existing, $fileId, $metadata->name, 'success');
             return $existing;
         }
 
@@ -323,6 +336,7 @@ class SourceSyncService
 
         ProcessDocument::dispatch($document);
         $this->cleanupDownload($downloaded);
+        $this->trackSyncLogItem($syncLog, $document, $fileId, $metadata->name, 'success');
 
         return $document;
     }
@@ -345,7 +359,8 @@ class SourceSyncService
         SourceConnection $connection,
         string $fileId,
         DownloadedFile $downloaded,
-        SourceItem $metadata
+        SourceItem $metadata,
+        ?SyncLog $syncLog = null
     ): ?Document {
         $zip = new ZipArchive;
         $zipPath = Storage::disk('local')->path($downloaded->localPath);
@@ -420,6 +435,7 @@ class SourceSyncService
                         'name' => $originalName,
                         'duplicate_of' => $duplicate->id,
                     ]);
+                    $this->trackSyncLogItem($syncLog, $duplicate, $fileId, $originalName, 'skipped', 'duplicate_content', ['from_zip' => $metadata->name]);
                     continue;
                 }
 
@@ -437,6 +453,7 @@ class SourceSyncService
 
                 ProcessDocument::dispatch($document);
                 $importedDocuments[] = $document;
+                $this->trackSyncLogItem($syncLog, $document, $fileId, $originalName, 'success', null, ['from_zip' => $metadata->name]);
             }
         } finally {
             // Clean up temp directory
@@ -471,5 +488,35 @@ class SourceSyncService
         }
 
         rmdir($dir);
+    }
+
+    protected function trackSyncLogItem(
+        ?SyncLog $syncLog,
+        ?Document $document,
+        string $fileId,
+        string $fileName,
+        string $status, // 'success', 'failed', 'skipped'
+        ?string $errorOrSkipReason = null,
+        ?array $metadata = null
+    ): void {
+        if (!$syncLog) {
+            return;
+        }
+
+        SyncLogItem::create([
+            'sync_log_id' => $syncLog->id,
+            'document_id' => $document?->id,
+            'file_id' => $fileId,
+            'file_name' => $fileName,
+            'file_path' => $document?->file_path,
+            'file_size' => $document?->file_size,
+            'mime_type' => $document?->mime_type,
+            'status' => $status,
+            'skip_reason' => $status === 'skipped' ? $errorOrSkipReason : null,
+            'error_message' => $status === 'failed' ? $errorOrSkipReason : null,
+            'metadata' => $metadata,
+        ]);
+
+        $syncLog->incrementCounters($status);
     }
 }

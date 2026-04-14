@@ -69,33 +69,49 @@
         </div>
     </div>
 
-    {{-- Files List --}}
-    <div class="max-w-7xl mx-auto px-6 py-8">
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 class="text-lg font-bold text-gray-900">File Processati ({{ $syncLog->items->count() }})</h2>
-                <div class="flex gap-2">
-                    <button @click="filter = 'all'" :class="filter === 'all' ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all">
-                        Tutti
-                    </button>
-                    <button @click="filter = 'success'" :class="filter === 'success' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all">
-                        Successo
-                    </button>
-                    <button @click="filter = 'failed'" :class="filter === 'failed' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all">
-                        Falliti
-                    </button>
-                    <button @click="filter = 'skipped'" :class="filter === 'skipped' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all">
-                        Saltati
+    {{-- Filters Section --}}
+    <div class="bg-gray-50/80 border-b border-gray-200/50" x-data="syncLogShowApp()">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex flex-col md:flex-row gap-3">
+                <div class="flex-1">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            type="text"
+                            x-model="filters.search"
+                            @keyup.enter="applyFilters"
+                            placeholder="Cerca per nome file..."
+                            class="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <select @change="applyFilters" x-model="filters.status" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Tutti gli stati</option>
+                        <option value="success">Successo</option>
+                        <option value="failed">Falliti</option>
+                        <option value="skipped">Saltati</option>
+                    </select>
+                    <button @click="resetFilters" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors">
+                        Reset
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="divide-y divide-gray-100" x-data="{ filter: 'all' }">
-                @forelse($syncLog->items as $item)
-                    <div
-                        x-show="filter === 'all' || filter === '{{ $item->status }}'"
-                        class="px-6 py-4 hover:bg-gray-50 transition-all"
-                    >
+    {{-- Files List --}}
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-bold text-gray-900">File Processati ({{ $items->total() }})</h2>
+            </div>
+
+            <div class="divide-y divide-gray-100">
+                @forelse($items as $item)
+                    <div class="px-6 py-4 hover:bg-gray-50 transition-all">
                         <div class="flex items-start gap-4">
                             {{-- Status Icon --}}
                             <div class="shrink-0 mt-1">
@@ -179,7 +195,37 @@
                     </div>
                 @endforelse
             </div>
+
+            {{-- Pagination --}}
+            @if($items->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200">
+                    {{ $items->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>
+
+<script>
+function syncLogShowApp() {
+    return {
+        filters: {
+            search: '{{ request("search") }}',
+            status: '{{ request("status") }}'
+        },
+
+        applyFilters() {
+            const params = new URLSearchParams();
+            if (this.filters.search) params.append('search', this.filters.search);
+            if (this.filters.status) params.append('status', this.filters.status);
+
+            window.location.href = '{{ route("sync-logs.show", $syncLog) }}?' + params.toString();
+        },
+
+        resetFilters() {
+            window.location.href = '{{ route("sync-logs.show", $syncLog) }}';
+        },
+    };
+}
+</script>
 @endsection

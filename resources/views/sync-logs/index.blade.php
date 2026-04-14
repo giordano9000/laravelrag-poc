@@ -88,6 +88,12 @@
                         <option value="failed">Falliti</option>
                         <option value="partial">Parziali</option>
                     </select>
+
+                    @if(request()->hasAny(['connection_id', 'type', 'status']))
+                        <button @click="resetFilters" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors">
+                            Reset
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
@@ -213,6 +219,10 @@ function syncLogsApp() {
             if (this.filters.status) params.append('status', this.filters.status);
 
             window.location.href = '{{ route("sync-logs.index") }}?' + params.toString();
+        },
+
+        resetFilters() {
+            window.location.href = '{{ route("sync-logs.index") }}';
         },
 
         deleteLog(id) {
