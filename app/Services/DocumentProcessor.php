@@ -10,6 +10,41 @@ use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class DocumentProcessor
 {
+    /**
+     * Check if a mime type is supported for text extraction.
+     */
+    public static function isSupportedMimeType(?string $mimeType): bool
+    {
+        if (!$mimeType) {
+            return false;
+        }
+
+        // Supported mime types
+        $supported = [
+            'application/pdf',
+            'text/plain',
+            // Word
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            // Spreadsheet
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/csv',
+        ];
+
+        // Check exact match
+        if (in_array($mimeType, $supported)) {
+            return true;
+        }
+
+        // Check image/* prefix
+        if (str_starts_with($mimeType, 'image/')) {
+            return true;
+        }
+
+        return false;
+    }
+
     public function extractText(string $filePath, string $mimeType): ExtractedContent
     {
         if ($this->isSpreadsheet($mimeType)) {

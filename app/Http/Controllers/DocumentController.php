@@ -31,6 +31,30 @@ class DocumentController extends Controller
         return view('dashboard', compact('documents'));
     }
 
+    public function list()
+    {
+        $documents = Document::with('sourceConnection')
+            ->latest()
+            ->get()
+            ->map(function ($doc) {
+                return [
+                    'id' => $doc->id,
+                    'title' => $doc->title,
+                    'original_filename' => $doc->original_filename,
+                    'mime_type' => $doc->mime_type,
+                    'file_size' => $doc->file_size,
+                    'status' => $doc->status,
+                    'chunk_count' => $doc->chunks()->count(),
+                    'source_type' => $doc->source_type,
+                    'source_name' => $doc->sourceConnection?->name,
+                    'created_at' => $doc->created_at,
+                    'updated_at' => $doc->updated_at,
+                ];
+            });
+
+        return view('documents.index', compact('documents'));
+    }
+
     public function store(Request $request)
     {
         $request->validate([

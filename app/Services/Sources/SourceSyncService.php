@@ -168,11 +168,32 @@ class SourceSyncService
                 ->toArray();
 
             // Filter only files (not folders) that haven't been imported yet
+            // Also filter by supported mime types
             $newFileIds = [];
+            $skippedUnsupported = 0;
             foreach ($items as $item) {
-                if ($item->type === 'file' && !in_array($item->id, $importedFileIds)) {
-                    $newFileIds[] = $item->id;
+                if ($item->type !== 'file' || in_array($item->id, $importedFileIds)) {
+                    continue;
                 }
+
+                // Check if mime type is supported
+                if (!\App\Services\DocumentProcessor::isSupportedMimeType($item->mimeType)) {
+                    $skippedUnsupported++;
+                    Log::debug("Skipping unsupported file type during full sync", [
+                        'name' => $item->name,
+                        'mime_type' => $item->mimeType,
+                    ]);
+                    continue;
+                }
+
+                $newFileIds[] = $item->id;
+            }
+
+            if ($skippedUnsupported > 0) {
+                Log::info("Skipped unsupported files during full sync", [
+                    'connection_id' => $connection->id,
+                    'count' => $skippedUnsupported,
+                ]);
             }
 
             // Import new files

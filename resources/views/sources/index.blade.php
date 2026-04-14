@@ -212,12 +212,13 @@
                 <div x-show="!loadingFiles" class="space-y-1">
                     <template x-for="item in browserItems" :key="item.id">
                         <div
-                            @click="item.type === 'folder' ? navigateToFolder(item.id, item.name) : toggleFileSelection(item)"
-                            class="flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all"
+                            @click="item.type === 'folder' ? navigateToFolder(item.id, item.name) : (isFileSupported(item) ? toggleFileSelection(item) : null)"
+                            class="flex items-center gap-4 p-3 rounded-xl transition-all"
                             :class="{
-                                'hover:bg-gray-50': item.type === 'folder',
-                                'hover:bg-indigo-50': item.type === 'file' && !isFileSelected(item.id),
+                                'hover:bg-gray-50 cursor-pointer': item.type === 'folder',
+                                'hover:bg-indigo-50 cursor-pointer': item.type === 'file' && isFileSupported(item) && !isFileSelected(item.id),
                                 'bg-indigo-50 ring-1 ring-indigo-200': isFileSelected(item.id),
+                                'opacity-40 cursor-not-allowed': item.type === 'file' && !isFileSupported(item),
                             }"
                         >
                             {{-- Checkbox for files --}}
@@ -246,7 +247,10 @@
 
                             {{-- Info --}}
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 truncate" x-text="item.name"></p>
+                                <div class="flex items-center gap-2">
+                                    <p class="text-sm font-medium text-gray-900 truncate" x-text="item.name"></p>
+                                    <span x-show="item.type === 'file' && !isFileSupported(item)" class="shrink-0 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">Non supportato</span>
+                                </div>
                                 <div class="flex items-center gap-3 mt-0.5">
                                     <span x-show="item.size" class="text-xs text-gray-500" x-text="formatSize(item.size)"></span>
                                     <span x-show="item.modifiedAt" class="text-xs text-gray-400" x-text="formatDate(item.modifiedAt)"></span>
@@ -710,6 +714,25 @@ function sourcesApp() {
             if (!dateStr) return '';
             const d = new Date(dateStr);
             return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        },
+
+        isFileSupported(item) {
+            if (!item.mimeType) return false;
+
+            const supported = [
+                'application/pdf',
+                'text/plain',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/csv',
+            ];
+
+            if (supported.includes(item.mimeType)) return true;
+            if (item.mimeType.startsWith('image/')) return true;
+
+            return false;
         },
     };
 }
