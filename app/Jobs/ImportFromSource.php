@@ -19,22 +19,22 @@ class ImportFromSource implements ShouldQueue
     public int $timeout = 600;
 
     public function __construct(
-        public SourceConnection $connection,
+        public SourceConnection $sourceConnection,
         public array $fileIds,
     ) {}
 
     public function handle(SourceSyncService $syncService): void
     {
         Log::info("Starting import from source", [
-            'connection_id' => $this->connection->id,
-            'provider' => $this->connection->provider,
+            'connection_id' => $this->sourceConnection->id,
+            'provider' => $this->sourceConnection->provider,
             'file_count' => count($this->fileIds),
         ]);
 
-        $imported = $syncService->importFiles($this->connection, $this->fileIds);
+        $imported = $syncService->importFiles($this->sourceConnection, $this->fileIds);
 
         Log::info("Import from source completed", [
-            'connection_id' => $this->connection->id,
+            'connection_id' => $this->sourceConnection->id,
             'imported_count' => count($imported),
         ]);
     }
@@ -42,7 +42,7 @@ class ImportFromSource implements ShouldQueue
     public function failed(?\Throwable $exception): void
     {
         Log::error("Import from source job failed", [
-            'connection_id' => $this->connection->id,
+            'connection_id' => $this->sourceConnection->id,
             'error' => $exception?->getMessage(),
         ]);
     }

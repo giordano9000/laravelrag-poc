@@ -19,20 +19,20 @@ class SyncSourceConnection implements ShouldQueue
     public int $timeout = 900;
 
     public function __construct(
-        public SourceConnection $connection,
+        public SourceConnection $sourceConnection,
     ) {}
 
     public function handle(SourceSyncService $syncService): void
     {
         Log::info("Starting sync for source connection", [
-            'connection_id' => $this->connection->id,
-            'provider' => $this->connection->provider,
+            'connection_id' => $this->sourceConnection->id,
+            'provider' => $this->sourceConnection->provider,
         ]);
 
-        $updated = $syncService->syncConnection($this->connection);
+        $updated = $syncService->syncConnection($this->sourceConnection);
 
         Log::info("Sync completed for source connection", [
-            'connection_id' => $this->connection->id,
+            'connection_id' => $this->sourceConnection->id,
             'updated_count' => count($updated),
         ]);
     }
@@ -40,7 +40,7 @@ class SyncSourceConnection implements ShouldQueue
     public function failed(?\Throwable $exception): void
     {
         Log::error("Sync source connection job failed", [
-            'connection_id' => $this->connection->id,
+            'connection_id' => $this->sourceConnection->id,
             'error' => $exception?->getMessage(),
         ]);
     }
