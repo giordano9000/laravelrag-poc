@@ -9,6 +9,7 @@ use App\Services\MimeTypeService;
 use App\Services\Sources\Contracts\SourceProviderInterface;
 use App\Services\Sources\DTOs\DownloadedFile;
 use App\Services\Sources\DTOs\FileMetadata;
+use App\Services\Sources\DTOs\SourceItem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
@@ -266,7 +267,6 @@ class SourceSyncService
 
         // Handle ZIP files specially - extract and import contents
         if (MimeTypeService::isZip($downloaded->mimeType)) {
-            $this->cleanupDownload($downloaded);
             return $this->importZipFile($connection, $fileId, $downloaded, $metadata);
         }
 
@@ -350,11 +350,30 @@ class SourceSyncService
         $zip = new ZipArchive;
         $zipPath = Storage::disk('local')->path($downloaded->localPath);
 
-        if ($zip->open($zipPath) !== true) {
+        $zipOpenResult = $zip->open($zipPath);
+        if ($zipOpenResult !== true) {
+            $errorMessages = [
+                ZipArchive::ER_EXISTS => 'File already exists',
+                ZipArchive::ER_INCONS => 'Zip archive inconsistent',
+                ZipArchive::ER_INVAL => 'Invalid argument',
+                ZipArchive::ER_MEMORY => 'Malloc failure',
+                ZipArchive::ER_NOENT => 'No such file',
+                ZipArchive::ER_NOZIP => 'Not a zip archive',
+                ZipArchive::ER_OPEN => 'Can\'t open file',
+                ZipArchive::ER_READ => 'Read error',
+                ZipArchive::ER_SEEK => 'Seek error',
+            ];
+
             Log::error("Failed to open ZIP file", [
                 'file_id' => $fileId,
                 'name' => $metadata->name,
+                'zip_path' => $zipPath,
+                'file_exists' => file_exists($zipPath),
+                'file_size' => file_exists($zipPath) ? filesize($zipPath) : null,
+                'error_code' => $zipOpenResult,
+                'error_message' => $errorMessages[$zipOpenResult] ?? 'Unknown error',
             ]);
+            $this->cleanupDownload($downloaded);
             return null;
         }
 
@@ -428,6 +447,9 @@ class SourceSyncService
             'zip_name' => $metadata->name,
             'files_imported' => count($importedDocuments),
         ]);
+
+        // Clean up downloaded ZIP file
+        $this->cleanupDownload($downloaded);
 
         // Return the first imported document (or null if none)
         return $importedDocuments[0] ?? null;
