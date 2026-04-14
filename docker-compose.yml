@@ -5,7 +5,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-      - /app/vendor
       - ./.env.docker:/app/.env:ro
     depends_on:
       postgres:
@@ -23,7 +22,6 @@ services:
     command: php artisan queue:work --sleep=3 --tries=3
     volumes:
       - .:/app
-      - /app/vendor
       - ./.env.docker:/app/.env:ro
     depends_on:
       postgres:

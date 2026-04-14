@@ -71,7 +71,7 @@ class SourceSyncService
     }
 
     /**
-     * Sync all previously imported files from a connection.
+     * Sync all previously imported files from a connection (only updates modified files).
      */
     public function syncConnection(SourceConnection $connection): array
     {
@@ -141,6 +141,57 @@ class SourceSyncService
         $connection->update(['last_synced_at' => now()]);
 
         return $updated;
+    }
+
+    /**
+     * Full sync: updates existing files AND imports new files from root folder.
+     */
+    public function fullSyncConnection(SourceConnection $connection): array
+    {
+        $provider = SourceProviderFactory::make($connection);
+        $this->ensureValidToken($connection, $provider);
+        $connection->refresh();
+
+        // Step 1: Update existing files
+        $updated = $this->syncConnection($connection);
+
+        // Step 2: Import new files from root folder
+        $newFiles = [];
+
+        try {
+            $items = $provider->listItems(''); // root folder
+
+            // Get already imported file IDs
+            $importedFileIds = Document::where('source_connection_id', $connection->id)
+                ->whereNotNull('source_file_id')
+                ->pluck('source_file_id')
+                ->toArray();
+
+            // Filter only files (not folders) that haven't been imported yet
+            $newFileIds = [];
+            foreach ($items as $item) {
+                if ($item->type === 'file' && !in_array($item->id, $importedFileIds)) {
+                    $newFileIds[] = $item->id;
+                }
+            }
+
+            // Import new files
+            if (!empty($newFileIds)) {
+                Log::info("Full sync found new files", [
+                    'connection_id' => $connection->id,
+                    'new_files_count' => count($newFileIds),
+                ]);
+
+                $newFiles = $this->importFiles($connection, $newFileIds);
+            }
+        } catch (\Throwable $e) {
+            Log::error("Failed to scan for new files during full sync", [
+                'connection_id' => $connection->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return array_merge($updated, $newFiles);
     }
 
     protected function importSingleFile(

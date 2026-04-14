@@ -240,16 +240,91 @@ class DocumentProcessor
 
         foreach ($phpWord->getSections() as $section) {
             foreach ($section->getElements() as $element) {
-                if (method_exists($element, 'getText')) {
-                    $line = $element->getText();
-                    if ($line !== null && trim($line) !== '') {
-                        $text[] = $line;
-                    }
+                $extractedText = $this->extractTextFromElement($element);
+
+                // Pulisci il testo da spazi eccessivi e caratteri di controllo
+                $extractedText = preg_replace('/\s+/', ' ', $extractedText);
+                $extractedText = trim($extractedText);
+
+                // Salta se è troppo corto o contiene solo caratteri non-alfanumerici
+                if (strlen($extractedText) < 3) {
+                    continue;
+                }
+
+                // Salta se è principalmente spazi/caratteri speciali
+                if (preg_match('/^[\s\p{Z}\p{C}]+$/u', $extractedText)) {
+                    continue;
+                }
+
+                if (!empty($extractedText)) {
+                    $text[] = $extractedText;
                 }
             }
         }
 
         return implode("\n", $text);
+    }
+
+    private function extractTextFromElement($element): string
+    {
+        $className = get_class($element);
+
+        // Skip PageBreak
+        if ($className === 'PhpOffice\PhpWord\Element\PageBreak') {
+            return '';
+        }
+
+        // TextRun - extract from children only
+        if ($className === 'PhpOffice\PhpWord\Element\TextRun') {
+            $text = [];
+            if (method_exists($element, 'getElements')) {
+                foreach ($element->getElements() as $childElement) {
+                    $childClass = get_class($childElement);
+
+                    // Only extract from Text elements, skip TextBreak and others
+                    if ($childClass === 'PhpOffice\PhpWord\Element\Text') {
+                        $childText = $childElement->getText();
+                        if ($childText !== null && trim($childText) !== '') {
+                            $text[] = $childText;
+                        }
+                    }
+                }
+            }
+            return implode(' ', $text);
+        }
+
+        // Table
+        if ($className === 'PhpOffice\PhpWord\Element\Table') {
+            $tableText = [];
+            foreach ($element->getRows() as $row) {
+                $rowText = [];
+                foreach ($row->getCells() as $cell) {
+                    $cellText = [];
+                    foreach ($cell->getElements() as $cellElement) {
+                        $extracted = $this->extractTextFromElement($cellElement);
+                        if (!empty(trim($extracted))) {
+                            $cellText[] = $extracted;
+                        }
+                    }
+                    if (!empty($cellText)) {
+                        $rowText[] = implode(' ', $cellText);
+                    }
+                }
+                if (!empty($rowText)) {
+                    $tableText[] = implode(' | ', $rowText);
+                }
+            }
+            return implode("\n", $tableText);
+        }
+
+        // Direct Text element
+        if ($className === 'PhpOffice\PhpWord\Element\Text') {
+            $text = $element->getText();
+            return ($text !== null) ? $text : '';
+        }
+
+        // TextBreak, Image, and other elements - skip
+        return '';
     }
 
     private function isWord(string $mimeType): bool

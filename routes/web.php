@@ -22,3 +22,4 @@ Route::get('/sources/callback/{provider}', [SourceConnectionController::class, '
 Route::get('/sources/{connection}/browse', [SourceConnectionController::class, 'browse'])->name('sources.browse');
 Route::post('/sources/{connection}/import', [SourceConnectionController::class, 'import'])->name('sources.import');
 Route::post('/sources/{connection}/sync', [SourceConnectionController::class, 'sync'])->name('sources.sync');
+Route::post('/sources/{connection}/full-sync', [SourceConnectionController::class, 'fullSync'])->name('sources.fullSync');

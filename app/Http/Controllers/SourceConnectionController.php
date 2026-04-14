@@ -163,4 +163,17 @@ class SourceConnectionController extends Controller
             'message' => 'Sincronizzazione avviata.',
         ]);
     }
+
+    public function fullSync(SourceConnection $connection)
+    {
+        if (!$connection->isConnected()) {
+            return response()->json(['message' => 'Connessione non attiva.'], 422);
+        }
+
+        SyncSourceConnection::dispatch($connection, true); // full sync flag
+
+        return response()->json([
+            'message' => 'Sincronizzazione completa avviata.',
+        ]);
+    }
 }

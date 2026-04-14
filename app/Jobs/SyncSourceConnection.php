@@ -20,20 +20,27 @@ class SyncSourceConnection implements ShouldQueue
 
     public function __construct(
         public SourceConnection $sourceConnection,
+        public bool $fullSync = false,
     ) {}
 
     public function handle(SourceSyncService $syncService): void
     {
-        Log::info("Starting sync for source connection", [
+        $syncType = $this->fullSync ? 'full sync' : 'sync';
+
+        Log::info("Starting {$syncType} for source connection", [
             'connection_id' => $this->sourceConnection->id,
             'provider' => $this->sourceConnection->provider,
+            'full_sync' => $this->fullSync,
         ]);
 
-        $updated = $syncService->syncConnection($this->sourceConnection);
+        $result = $this->fullSync
+            ? $syncService->fullSyncConnection($this->sourceConnection)
+            : $syncService->syncConnection($this->sourceConnection);
 
         Log::info("Sync completed for source connection", [
             'connection_id' => $this->sourceConnection->id,
-            'updated_count' => count($updated),
+            'sync_type' => $syncType,
+            'result_count' => count($result),
         ]);
     }
 

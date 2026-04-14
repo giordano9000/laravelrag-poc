@@ -40,7 +40,7 @@ WORKDIR /app
 
 # Copia dipendenze prima per sfruttare la cache Docker
 COPY composer.json composer.lock ./
-RUN composer install --no-scripts --no-autoloader --no-dev
+RUN composer install --no-scripts --no-autoloader
 
 # Copia il resto dell'applicazione
 COPY . .
